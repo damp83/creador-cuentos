@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taller de Cuentos Interactivo con IA</title>
+    <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Merriweather:wght@400;700&family=Fredoka+One&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link rel="stylesheet" href="style.css">
+    <!-- Quill editor styles -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 </head>
 <body>
 
@@ -24,7 +27,7 @@
                 <ul id="creator-nav" style="display: none;">
                     <li><a href="#" class="nav-link" data-step="1"><i data-lucide="sparkles"></i> Idea</a></li>
                     <li><a href="#" class="nav-link" data-step="2"><i data-lucide="user-round"></i> Personajes</a></li>
-                    <li><a href="#" class="nav-link" data-step="3"><i data-lucide="mountain-snow"></i> Escenario</a></li>
+                    <li><a href="#" class="nav-link" data-step="3"><i data-lucide="mountain-snow"></i> Portada</a></li>
                     <li><a href="#" class="nav-link" data-step="4"><i data-lucide="align-left"></i> Introducción</a></li>
                     <li><a href="#" class="nav-link" data-step="5"><i data-lucide="align-center"></i> Desarrollo</a></li>
                     <li><a href="#" class="nav-link" data-step="6"><i data-lucide="align-right"></i> Desenlace</a></li>
@@ -58,102 +61,114 @@
                                     <label for="char-name">Nombre del Personaje</label>
                                     <input type="text" id="char-name" placeholder="Escribe un nombre">
                                 </div>
+                                <div class="form-group" style="width:100%; margin-top: 10px;">
+                                    <label for="char-role">Rol en la historia</label>
+                                    <select id="char-role">
+                                        <option value="protagonist">Protagonista</option>
+                                        <option value="friend">Amigo/a</option>
+                                        <option value="villain">Antagonista</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="avatar-options">
-                                <div class="builder-mode-toggle">
-                                    <button class="mode-btn active" data-mode="manual">Manual</button>
-                                    <button class="mode-btn" data-mode="ai">Crear con IA ✨</button>
-                                </div>
-                                <div id="manual-builder">
-                                    <div class="option-group"><h4>Cuerpo</h4><div class="option-buttons" id="body-options"></div></div>
-                                    <div class="option-group"><h4>Pelo</h4><div class="option-buttons" id="hair-options"></div></div>
-                                    <div class="option-group"><h4>Ojos</h4><div class="option-buttons" id="eyes-options"></div></div>
-                                    <div class="option-group"><h4>Ropa</h4><div class="option-buttons" id="clothing-options"></div></div>
-                                </div>
                                 <div id="ai-builder">
-                                    <p>Usa el asistente para describir el personaje que imaginas.</p>
+                                    <p>Describe tu personaje y la IA lo creará automáticamente.</p>
                                     <button id="open-ai-assistant-btn" class="nav-btn" style="background-color: var(--ai-color);">Abrir Asistente de Creación IA</button>
                                 </div>
+
+                                <!-- Ficha pedagógica del personaje (única) -->
+                                <div class="character-details" id="character-details">
+                                    <h4>Ficha del Personaje</h4>
+                                    <div class="details-grid">
+                                        <div class="form-group">
+                                            <label for="char-species">Especie / Tipo</label>
+                                            <input type="text" id="char-species" placeholder="Ej: zorro, robot, mago...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-age">Edad</label>
+                                            <input type="text" id="char-age" placeholder="Ej: 7 años, adolescente, anciano...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-personality">Personalidad</label>
+                                            <input type="text" id="char-personality" placeholder="Ej: valiente, curioso, tímido...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-likes">Gustos</label>
+                                            <input type="text" id="char-likes" placeholder="Ej: chocolate, leer, explorar...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-strengths">Fortalezas</label>
+                                            <input type="text" id="char-strengths" placeholder="Ej: ingenioso, fuerte, creativo...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-weaknesses">Debilidades</label>
+                                            <input type="text" id="char-weaknesses" placeholder="Ej: impaciente, miedoso...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="char-goal">Objetivo</label>
+                                            <input type="text" id="char-goal" placeholder="Ej: encontrar el tesoro...">
+                                        </div>
+                                        <div class="form-group" style="grid-column: 1 / -1;">
+                                            <label for="char-backstory">Historia</label>
+                                            <textarea id="char-backstory" rows="2" placeholder="Breve historia o contexto..."></textarea>
+                                        </div>
+                                        <div class="form-group" style="grid-column: 1 / -1;">
+                                            <label for="char-style">Estilo al hablar</label>
+                                            <input type="text" id="char-style" placeholder="Ej: habla en rimas, muy educado, usa muletillas...">
+                                        </div>
+                                    </div>
+                                </div>
+                                <small style="color:#718096">La imagen aparecerá aquí abajo</small>
                             </div>
-                        </div>
-                    </div>
-                </section>
-                <section id="step3" class="main-content">
-                    <div class="step-header"><h2>Elige el Escenario</h2><p>Selecciona un mundo o crea uno nuevo con la magia de la IA.</p></div>
-                    <div class="step-content">
-                        <div class="selection-grid" id="scenario-selector">
-                           <div class="selection-card" data-value="un bosque encantado">
-                               <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#a8e6cf"/><path d="M40 150 C 40 100, 60 100, 60 150 Z" fill="#3c6255"/><path d="M80 150 C 80 90, 110 90, 110 150 Z" fill="#61876e"/><path d="M130 150 C 130 110, 150 110, 150 150 Z" fill="#3c6255"/><circle cx="170" cy="40" r="15" fill="#ffd3b6"/><circle cx="30" cy="30" r="10" fill="#ffaaa5"/></svg>
-                               <span>Bosque Encantado</span>
-                           </div>
-                           <div class="selection-card" data-value="un castillo misterioso">
-                               <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#dcedc1"/><path d="M50 150 L 50 80 L 80 50 L 120 50 L 150 80 L 150 150 Z" fill="#b0aac0"/><rect x="85" y="110" width="30" height="40" fill="#797a7e"/><path d="M50 80 L 30 80 L 30 60 L 50 60 Z" fill="#b0aac0"/><path d="M150 80 L 170 80 L 170 60 L 150 60 Z" fill="#b0aac0"/><circle cx="180" cy="20" r="10" fill="#f9f871"/></svg>
-                               <span>Castillo Misterioso</span>
-                           </div>
-                           <div class="selection-card" data-value="un planeta de dulces">
-                               <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="150" fill="#ffc0cb"/><path d="M0 150 C 50 100, 150 100, 200 150 Z" fill="#7b3f00"/><circle cx="50" cy="80" r="20" fill="#ff69b4"/><path d="M40 80 L 60 80 L 50 40 Z" fill="#ff69b4"/><circle cx="150" cy="90" r="25" fill="#fdfd96"/><path d="M140 90 L 160 90 L 150 50 Z" fill="#fdfd96"/></svg>
-                               <span>Planeta de Dulces</span>
-                           </div>
-                           <div class="selection-card" id="ai-scenario-card" data-value="un lugar mágico generado por IA">
-                                <i data-lucide="sparkles" style="width: 60px; height: 60px; color: var(--ai-color);"></i>
-                                <span>Crear con IA</span>
-                           </div>
+                            <div class="illustration-preview" id="cover-preview" style="margin-top: 12px;"></div>
                         </div>
                     </div>
                 </section>
                 <section id="step4" class="main-content">
-                    <div class="step-header"><h2>Página 1: La Introducción</h2><p>Presenta a tus personajes y el lugar donde empieza todo.</p></div>
-                    <div class="step-content writing-page">
-                        <div class="writing-area">
-                            <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
-                                <div class="writing-tools"><label for="plot-start">Escribe el comienzo de tu historia...</label><button class="tool-btn idea-btn" data-target="plot-start" title="Dame una idea"><i data-lucide="lightbulb"></i></button></div>
-                                <textarea id="plot-start" placeholder="Había una vez..." style="flex-grow: 1;"></textarea>
-                                <div class="writing-challenge" data-target="plot-start"></div>
+                    <div class="step-header"><h2>Introducción</h2><p>Añade tantas páginas como necesites.</p></div>
+                    <div class="step-content">
+                        <div class="writing-layout">
+                            <div class="pages-sidebar">
+                                <button id="add-intro-page-btn" class="nav-btn"><i data-lucide="plus"></i> Añadir Página</button>
+                                <div class="page-thumbs" id="intro-thumbs"></div>
                             </div>
-                        </div>
-                        <div class="illustration-area">
-                            <div class="illustration-preview" id="preview-intro"></div>
-                            <button class="nav-btn illustrate-btn" data-page="introduction" style="background-color: var(--ai-color);"><i data-lucide="image-plus"></i> Ilustrar Escena</button>
+                            <div class="page-editor" id="intro-editor"></div>
                         </div>
                     </div>
                 </section>
                 <section id="step5" class="main-content">
-                    <div class="step-header"><h2>Página 2: El Desarrollo</h2><p>¡Aquí ocurre la gran aventura o el problema principal!</p></div>
-                     <div class="step-content writing-page">
-                        <div class="writing-area">
-                            <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
-                                <div class="writing-tools"><label for="plot-middle">¿Qué pasó después?</label><button class="tool-btn idea-btn" data-target="plot-middle" title="Dame una idea"><i data-lucide="lightbulb"></i></button></div>
-                                <textarea id="plot-middle" placeholder="De repente, ocurrió algo inesperado..." style="flex-grow: 1;"></textarea>
-                                <div class="writing-challenge" data-target="plot-middle"></div>
+                    <div class="step-header"><h2>Desarrollo</h2><p>¡Aquí ocurre la gran aventura!</p></div>
+                    <div class="step-content">
+                        <div class="writing-layout">
+                            <div class="pages-sidebar">
+                                <button id="add-dev-page-btn" class="nav-btn"><i data-lucide="plus"></i> Añadir Página</button>
+                                <div class="page-thumbs" id="dev-thumbs"></div>
                             </div>
-                        </div>
-                        <div class="illustration-area">
-                            <div class="illustration-preview" id="preview-dev"></div>
-                            <button class="nav-btn illustrate-btn" data-page="development" style="background-color: var(--ai-color);"><i data-lucide="image-plus"></i> Ilustrar Escena</button>
+                            <div class="page-editor" id="dev-editor"></div>
                         </div>
                     </div>
                 </section>
                 <section id="step6" class="main-content">
-                    <div class="step-header"><h2>Página 3: El Desenlace</h2><p>¿Cómo termina la historia? ¿Qué aprendieron los personajes?</p></div>
-                     <div class="step-content writing-page">
-                        <div class="writing-area">
-                            <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
-                                <div class="writing-tools"><label for="plot-end">Escribe el final...</label><button class="tool-btn idea-btn" data-target="plot-end" title="Dame una idea"><i data-lucide="lightbulb"></i></button></div>
-                                <textarea id="plot-end" placeholder="Finalmente..." style="flex-grow: 1;"></textarea>
-                                <div class="writing-challenge" data-target="plot-end"></div>
+                    <div class="step-header"><h2>Desenlace</h2><p>¿Cómo termina la historia?</p></div>
+                    <div class="step-content">
+                        <div class="writing-layout">
+                            <div class="pages-sidebar">
+                                <button id="add-end-page-btn" class="nav-btn"><i data-lucide="plus"></i> Añadir Página</button>
+                                <div class="page-thumbs" id="end-thumbs"></div>
                             </div>
-                        </div>
-                        <div class="illustration-area">
-                            <div class="illustration-preview" id="preview-end"></div>
-                            <button class="nav-btn illustrate-btn" data-page="conclusion" style="background-color: var(--ai-color);"><i data-lucide="image-plus"></i> Ilustrar Escena</button>
+                            <div class="page-editor" id="end-editor"></div>
                         </div>
                     </div>
                 </section>
                 <section id="step7" class="main-content">
-                    <div class="step-header"><h2>Los Toques Finales</h2><p>¡Tu cuento está casi listo! Solo falta un buen título.</p></div>
+                    <div class="step-header"><h2>Los Toques Finales</h2><p>¡Revisa tu portada y tus páginas antes de terminar!</p></div>
                     <div class="step-content">
-                        <div class="form-group"><label for="story-title">Título del Cuento</label><input type="text" id="story-title" placeholder="El misterio del bosque encantado"></div>
-                        <div class="form-group"><label for="author-name">Escrito por</label><input type="text" id="author-name" placeholder="Tu nombre"></div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="show-page-numbers">
+                                Mostrar numeración de páginas en el resultado
+                            </label>
+                        </div>
                     </div>
                 </section>
                 <section id="step8" class="main-content">
@@ -164,7 +179,11 @@
                     </div>
                 </section>
             </div>
-            <div class="navigation"><button id="prev-btn" class="nav-btn" disabled><i data-lucide="arrow-left"></i> Atrás</button><button id="next-btn" class="nav-btn">Siguiente <i data-lucide="arrow-right"></i></button></div>
+            <div class="navigation">
+                <button id="prev-btn" class="nav-btn" disabled><i data-lucide="arrow-left"></i> Atrás</button>
+                <div id="nav-page-controls" class="nav-page-controls"></div>
+                <button id="next-btn" class="nav-btn">Siguiente <i data-lucide="arrow-right"></i></button>
+            </div>
         </div>
 
         <div id="library-view" class="main-content-wrapper">
@@ -190,32 +209,52 @@
             <p>¡Describe el personaje de tus sueños y la IA lo dibujará para ti!</p>
             <div class="modal-grid">
                 <div class="form-group">
-                    <label for="ai-char-type">Tipo de personaje</label>
-                    <select id="ai-char-type">
-                        <option value="un zorro">Zorro</option>
-                        <option value="un robot">Robot</option>
-                        <option value="un mago">Mago</option>
-                        <option value="una princesa">Princesa</option>
-                        <option value="un caballero">Caballero</option>
-                        <option value="un dragón bebé">Dragón bebé</option>
-                    </select>
+                    <label for="ai-char-type">Especie / Tipo</label>
+                    <input type="text" id="ai-char-type" placeholder="Ej: zorro, robot, mago..." />
                 </div>
-                 <div class="form-group">
+                <div class="form-group">
+                    <label for="ai-char-age">Edad</label>
+                    <input type="text" id="ai-char-age" placeholder="Ej: 7 años, adolescente, anciano..." />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-personality">Personalidad</label>
+                    <input type="text" id="ai-char-personality" placeholder="Ej: valiente, curioso, tímido..." />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-likes">Gustos</label>
+                    <input type="text" id="ai-char-likes" placeholder="Ej: chocolate, leer, explorar..." />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-strengths">Fortalezas</label>
+                    <input type="text" id="ai-char-strengths" placeholder="Ej: ingenioso, fuerte, creativo..." />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-weaknesses">Debilidades</label>
+                    <input type="text" id="ai-char-weaknesses" placeholder="Ej: impaciente, miedoso..." />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-goal">Objetivo</label>
+                    <input type="text" id="ai-char-goal" placeholder="Ej: encontrar el tesoro..." />
+                </div>
+                <div class="form-group modal-full-width">
+                    <label for="ai-char-backstory">Historia</label>
+                    <textarea id="ai-char-backstory" rows="2" placeholder="Breve historia o contexto..."></textarea>
+                </div>
+                <div class="form-group modal-full-width">
+                    <label for="ai-char-style">Estilo al hablar</label>
+                    <input type="text" id="ai-char-style" placeholder="Ej: habla en rimas, muy educado, usa muletillas..." />
+                </div>
+                <div class="form-group">
                     <label for="ai-char-hair">Pelo</label>
-                    <select id="ai-char-hair">
-                        <option value="pelo corto y azul">Corto y azul</option>
-                        <option value="pelo largo y rosa">Largo y rosa</option>
-                        <option value="pelo rizado y de arcoíris">Rizado y de arcoíris</option>
-                        <option value="sin pelo">Sin pelo</option>
-                    </select>
+                    <input type="text" id="ai-char-hair" placeholder="Ej: pelo corto y azul / sin pelo" />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-clothing">Ropa</label>
+                    <input type="text" id="ai-char-clothing" placeholder="Ej: armadura brillante" />
                 </div>
                 <div class="form-group modal-full-width">
-                    <label for="ai-char-clothing">¿Qué ropa lleva?</label>
-                    <input type="text" id="ai-char-clothing" placeholder="Ej: una armadura brillante">
-                </div>
-                <div class="form-group modal-full-width">
-                    <label for="ai-char-feature">Añade un rasgo especial</label>
-                    <input type="text" id="ai-char-feature" placeholder="Ej: con unas pequeñas alas de hada">
+                    <label for="ai-char-feature">Rasgo especial</label>
+                    <input type="text" id="ai-char-feature" placeholder="Ej: pequeñas alas de hada" />
                 </div>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 20px;">
@@ -240,6 +279,8 @@
         </div>
     </div>
 
+    <!-- Quill editor -->
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
     <script src="main.js"></script>
 </body>
 </html>

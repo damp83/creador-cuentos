@@ -1,46 +1,13 @@
 // JavaScript extraído de index.html
 document.addEventListener('DOMContentLoaded', () => {
-    lucide.createIcons();
-
-    const avatarParts = {
-        body: {
-            human:
-                '<path d="M100 150 Q150 200 100 300 Q50 200 100 150" fill="#f2d5b1"/>',
-            monster:
-                '<path d="M100 150 Q180 220 100 300 Q20 220 100 150" fill="#a8e6cf"/>'
-        },
-        eyes: {
-            normal:
-                '<circle cx="85" cy="200" r="8" fill="black"/><circle cx="115" cy="200" r="8" fill="black"/>',
-            happy:
-                '<path d="M80 195 C 85 205, 95 205, 100 195" stroke="black" stroke-width="3" fill="none"/><path d="M110 195 C 115 205, 125 205, 130 195" stroke="black" stroke-width="3" fill="none"/>',
-            angry:
-                '<path d="M80 205 L 100 195" stroke="black" stroke-width="3"/><path d="M130 205 L 110 195" stroke="black" stroke-width="3"/>'
-        },
-        hair: {
-            short:
-                '<path d="M70 140 Q100 120 130 140 L120 160 Q100 150 80 160 Z" fill="#7b3f00"/>',
-            long:
-                '<path d="M70 140 Q100 120 130 140 L140 200 Q100 220 60 200 Z" fill="#ffcc00"/>',
-            spiky:
-                '<path d="M70 150 L80 130 L90 150 L100 130 L110 150 L120 130 L130 150 Z" fill="#333"/>'
-        },
-        clothing: {
-            tshirt:
-                '<path d="M70 250 L130 250 L140 300 L60 300 Z" fill="#e53e3e"/>',
-            dress:
-                '<path d="M70 250 L130 250 L150 320 L50 320 Z" fill="#38a169"/>',
-            armor:
-                '<path d="M70 250 L130 250 L130 300 L70 300 Z" fill="#a0aec0"/><rect x="60" y="250" width="80" height="10" fill="#a0aec0"/>'
-        }
-    };
+    // writingChallenges (constructor manual eliminado)
     const writingChallenges = [
         'Intenta describir cómo huele el lugar.',
         "Usa la palabra 'centelleante' en tu historia.",
         'Describe un sonido que escuche tu personaje.',
         'Escribe sobre algo que haga reír a tu personaje.'
     ];
-
+    // Definición única de appState
     let appState = {
         currentView: 'creator',
         currentStep: 1,
@@ -49,14 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
         storyData: {
             characters: [],
             scenario: {},
-            introduction: { text: '', imageUrl: null },
-            development: { text: '', imageUrl: null },
-            conclusion: { text: '', imageUrl: null }
+            cover: { imageUrl: null, prompt: '' },
+            introduction: [{ text: '', imageUrl: null }],
+            development: [{ text: '', imageUrl: null }],
+            conclusion: [{ text: '', imageUrl: null }]
         },
-        library: []
+        library: [],
+    pageSelection: { introduction: 0, development: 0, conclusion: 0 },
+    previewOptions: { showPageNumbers: false }
     };
     const totalSteps = 8;
-
     const creatorView = document.getElementById('creator-view');
     const libraryView = document.getElementById('library-view');
     const steps = document.querySelectorAll('.main-content');
@@ -64,11 +33,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('next-btn');
     const bookshelf = document.getElementById('bookshelf');
     const charNameInput = document.getElementById('char-name');
+    const charRoleSelect = document.getElementById('char-role');
+    const charSpecies = document.getElementById('char-species');
+    const charAge = document.getElementById('char-age');
+    const charPersonality = document.getElementById('char-personality');
+    const charLikes = document.getElementById('char-likes');
+    const charStrengths = document.getElementById('char-strengths');
+    const charWeaknesses = document.getElementById('char-weaknesses');
+    const charGoal = document.getElementById('char-goal');
+    const charBackstory = document.getElementById('char-backstory');
+    const charStyle = document.getElementById('char-style');
     const characterTabsContainer = document.getElementById('character-tabs');
     const rhymeModal = document.getElementById('rhyme-modal');
     const rhymeInput = document.getElementById('rhyme-input');
     const rhymeResults = document.getElementById('rhyme-results');
-    const manualBuilder = document.getElementById('manual-builder');
+    const manualBuilder = null;
     const aiBuilder = document.getElementById('ai-builder');
     const aiCharacterModal = document.getElementById('ai-character-modal');
     const generateAiAvatarBtn = document.getElementById('generate-ai-avatar-btn');
@@ -76,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiScenarioCard = document.getElementById('ai-scenario-card');
     const aiSceneModal = document.getElementById('ai-scene-modal');
     let currentPageToIllustrate = '';
+    const quillEditors = {}; // key: uniqueId, value: Quill instance
 
     const saveState = () => localStorage.setItem('storybookState', JSON.stringify(appState));
     const loadState = () => {
@@ -90,12 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt, type })
                 });
-                const result = await response.json();
+                let result = null;
+                try {
+                    result = await response.json();
+                } catch (_) {
+                    // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
+                }
+                if (!response.ok) {
+                    console.warn(`generate-image respondió ${response.status}. ¿Estás sirviendo las funciones /api?`);
+                    return null;
+                }
                 if (result?.imageBase64) {
                     return `data:image/png;base64,${result.imageBase64}`;
-                } else {
-                    throw new Error('No se recibió una imagen válida.');
                 }
+                return null;
             } catch (error) {
                 console.error('Error generando imagen:', error);
                 return null;
@@ -107,9 +95,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const hair = document.getElementById('ai-char-hair')?.value || '';
         const clothing = document.getElementById('ai-char-clothing')?.value || '';
         const feature = document.getElementById('ai-char-feature')?.value || '';
+        const age = document.getElementById('ai-char-age')?.value || '';
+        const personality = document.getElementById('ai-char-personality')?.value || '';
+        const likes = document.getElementById('ai-char-likes')?.value || '';
+        const strengths = document.getElementById('ai-char-strengths')?.value || '';
+        const weaknesses = document.getElementById('ai-char-weaknesses')?.value || '';
+        const goal = document.getElementById('ai-char-goal')?.value || '';
+        const backstory = document.getElementById('ai-char-backstory')?.value || '';
+        const style = document.getElementById('ai-char-style')?.value || '';
         let prompt = `${type} con ${hair}`.trim();
+        if (age) prompt += `, ${age}`;
         if (clothing) prompt += `, que lleva ${clothing}`;
         if (feature) prompt += `, ${feature}`;
+        if (personality) prompt += `. Personalidad: ${personality}`;
+        if (likes) prompt += `. Le gusta: ${likes}`;
+        if (strengths) prompt += `. Fortalezas: ${strengths}`;
+        if (weaknesses) prompt += `. Retos: ${weaknesses}`;
+        if (goal) prompt += `. Objetivo: ${goal}`;
+        if (backstory) prompt += `. Contexto: ${backstory}`;
+        if (style) prompt += `. Estilo al hablar: ${style}`;
 
         aiCharacterModal?.classList.remove('visible');
         if (generateAiAvatarBtn) {
@@ -129,8 +133,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (imageUrl) {
             const char = appState.storyData.characters[appState.editingCharIndex];
             if (char) {
+                // Guardar imagen IA y detalles desde el modal
                 char.avatar.aiAvatarUrl = imageUrl;
                 char.avatar.builderMode = 'ai';
+                char.details = char.details || {};
+                char.details.species = type || '';
+                char.details.age = age || '';
+                char.details.personality = personality || '';
+                char.details.likes = likes || '';
+                char.details.strengths = strengths || '';
+                char.details.weaknesses = weaknesses || '';
+                char.details.goal = goal || '';
+                char.details.backstory = backstory || '';
+                char.details.style = style || '';
+                // Volcar los inputs de la ficha visible
+                const setIf = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+                setIf('char-species', char.details.species);
+                setIf('char-age', char.details.age);
+                setIf('char-personality', char.details.personality);
+                setIf('char-likes', char.details.likes);
+                setIf('char-strengths', char.details.strengths);
+                setIf('char-weaknesses', char.details.weaknesses);
+                setIf('char-goal', char.details.goal);
+                const bs2 = document.getElementById('char-backstory'); if (bs2) bs2.value = char.details.backstory || '';
+                setIf('char-style', char.details.style);
                 renderAvatar();
                 saveState();
             }
@@ -138,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             avatarPreview.innerHTML = 'Error al crear la imagen.';
         }
     };
+
 
     const handleAIScenarioSubmit = async () => {
         const type = document.getElementById('ai-scenario-type')?.value || '';
@@ -167,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         lucide.createIcons();
     };
+
 
     const continueStoryWithAI = async (targetId) => {
         const textarea = document.getElementById(targetId);
@@ -210,86 +238,291 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleAISceneSubmit = async () => {
-        const prompt = document.getElementById('ai-scene-prompt')?.value?.trim() || '';
+        const promptBase = document.getElementById('ai-scene-prompt')?.value?.trim() || '';
+        // Build character context from selected checkboxes
+        const selectedIdxs = Array.from(document.querySelectorAll('#scene-characters-list input[type="checkbox"]:checked'))
+            .map((el) => parseInt(el.getAttribute('data-index') || '0', 10));
+        const selectedChars = selectedIdxs
+            .map((idx) => appState.storyData.characters[idx])
+            .filter(Boolean);
+        let charSnippet = '';
+        if (selectedChars.length > 0) {
+            const parts = selectedChars.map((c) => {
+                const d = c.details || {};
+                const role = (c.type || 'personaje');
+                const name = c.name ? `${c.name}, ` : '';
+                const species = d.species || '';
+                const personality = d.personality ? `, ${d.personality}` : '';
+                return `${name}${role} (${species}${personality})`;
+            });
+            charSnippet = ` Personajes: ${parts.join('; ')}.`;
+        }
+        const prompt = `${promptBase}${charSnippet}`.trim();
         if (!currentPageToIllustrate || !prompt) {
             aiSceneModal?.classList.remove('visible');
             return;
         }
-        const previewMap = {
-            introduction: 'preview-intro',
-            development: 'preview-dev',
-            conclusion: 'preview-end'
-        };
-        const previewId = previewMap[currentPageToIllustrate];
-        const preview = previewId ? document.getElementById(previewId) : null;
+        let preview = null;
+        if (typeof currentPageToIllustrate === 'string') {
+            // Compatibilidad con UI antigua
+            const previewMap = { introduction: 'preview-intro', development: 'preview-dev', conclusion: 'preview-end' };
+            const previewId = previewMap[currentPageToIllustrate];
+            preview = previewId ? document.getElementById(previewId) : null;
+        } else if (currentPageToIllustrate && typeof currentPageToIllustrate === 'object') {
+            const { section, index } = currentPageToIllustrate;
+            preview = document.getElementById(`${section}-preview-${index}`);
+        }
         if (preview) preview.innerHTML = '<div class="loader"></div>';
 
-        const imageUrl = await generateImage(prompt, 'scenario');
+    const imageUrl = await generateImage(prompt, 'scenario');
         if (imageUrl) {
-            appState.storyData[currentPageToIllustrate].imageUrl = imageUrl;
+            if (typeof currentPageToIllustrate === 'string') {
+                const sectionKey = currentPageToIllustrate;
+                const sectionVal = appState.storyData[sectionKey];
+                if (Array.isArray(sectionVal)) {
+                    if (sectionVal.length === 0) sectionVal.push({ text: '', imageUrl: null });
+                    sectionVal[0].imageUrl = imageUrl;
+                    sectionVal[0].charactersIncluded = selectedIdxs;
+                } else {
+                    appState.storyData[sectionKey] = {
+                        ...(sectionVal && !Array.isArray(sectionVal) ? sectionVal : {}),
+                        imageUrl,
+                        charactersIncluded: selectedIdxs
+                    };
+                }
+            } else if (currentPageToIllustrate && typeof currentPageToIllustrate === 'object') {
+                const { section, index } = currentPageToIllustrate;
+                const arr = appState.storyData[section];
+                if (Array.isArray(arr)) {
+                    if (!arr[index]) arr[index] = { text: '', imageUrl: null };
+                    arr[index].imageUrl = imageUrl;
+                    arr[index].charactersIncluded = selectedIdxs;
+                }
+            }
             populateForm();
             saveData();
+            // If we're on the final preview step, refresh it so new images/text appear immediately
+            if (appState.currentStep === totalSteps) {
+                generatePreview(appState.storyData);
+            }
         } else if (preview) {
             preview.innerHTML = 'Error al crear la imagen.';
         }
         aiSceneModal?.classList.remove('visible');
     };
 
+    const createOptionButtons = () => {};
+
+    // Exponer funciones clave al ámbito global para evitar problemas de alcance en listeners
+    window.handleAISceneSubmit = handleAISceneSubmit;
+
+    const populateSceneCharacters = () => {
+        const list = document.getElementById('scene-characters-list');
+        if (!list) return;
+        list.innerHTML = '';
+        // Determinar qué página está activa para preseleccionar
+        let included = [];
+        if (currentPageToIllustrate && typeof currentPageToIllustrate === 'object') {
+            const { section, index } = currentPageToIllustrate;
+            const arr = appState.storyData[section];
+            if (Array.isArray(arr) && arr[index] && Array.isArray(arr[index].charactersIncluded)) {
+                included = arr[index].charactersIncluded;
+            }
+        } else if (typeof currentPageToIllustrate === 'string') {
+            const sectionKey = currentPageToIllustrate;
+            const sectionVal = appState.storyData[sectionKey];
+            const pageObj = Array.isArray(sectionVal) ? sectionVal[0] : sectionVal;
+            if (pageObj && Array.isArray(pageObj.charactersIncluded)) {
+                included = pageObj.charactersIncluded;
+            }
+        }
+        const includedSet = new Set((included || []).map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n)));
+        appState.storyData.characters.forEach((c, idx) => {
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.setAttribute('data-index', String(idx));
+            if (includedSet.has(idx)) cb.checked = true;
+            label.appendChild(cb);
+            const span = document.createElement('span');
+            const role = c.type ? c.type.charAt(0).toUpperCase() + c.type.slice(1) : 'Personaje';
+            span.textContent = `${role}${c.name ? ': ' + c.name : ''}`;
+            label.appendChild(span);
+            list.appendChild(label);
+        });
+    };
+
+    // Render dinámico de páginas por sección
+    const renderSectionPages = (sectionKey, editorId, thumbsId) => {
+        const editor = document.getElementById(editorId);
+        const thumbs = document.getElementById(thumbsId);
+        if (!editor || !thumbs) return;
+        const arr = Array.isArray(appState.storyData[sectionKey]) ? appState.storyData[sectionKey] : [];
+        const selected = appState.pageSelection?.[sectionKey] ?? 0;
+
+        // Thumbnails
+        thumbs.innerHTML = '';
+        arr.forEach((p, idx) => {
+            const t = document.createElement('div');
+            t.className = 'page-thumb';
+            if (idx === selected) t.classList.add('active');
+            t.setAttribute('draggable', 'true');
+            t.dataset.index = String(idx);
+            t.innerHTML = `
+                <div class="thumb-num">${idx + 1}</div>
+                ${p?.imageUrl ? `<img src="${p.imageUrl}" alt="miniatura"/>` : '<div class="thumb-placeholder"></div>'}
+            `;
+            t.addEventListener('click', () => {
+                appState.pageSelection[sectionKey] = idx;
+                renderSectionPages(sectionKey, editorId, thumbsId);
+                saveState();
+            });
+            t.addEventListener('dragstart', (e) => {
+                if (e.dataTransfer) {
+                    e.dataTransfer.setData('text/plain', String(idx));
+                    e.dataTransfer.setDragImage(t, 10, 10);
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            });
+            thumbs.appendChild(t);
+        });
+
+        // DnD handlers en el contenedor
+        thumbs.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        });
+        thumbs.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const fromStr = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+            const from = fromStr ? parseInt(fromStr, 10) : NaN;
+            const targetEl = e.target instanceof Element ? e.target : null;
+            const targetThumb = targetEl ? targetEl.closest('.page-thumb') : null;
+            const to = targetThumb ? parseInt(targetThumb.getAttribute('data-index') || '0', 10) : NaN;
+            if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
+            const a = appState.storyData[sectionKey];
+            if (!Array.isArray(a)) return;
+            const [moved] = a.splice(from, 1);
+            a.splice(to, 0, moved);
+            appState.pageSelection[sectionKey] = to;
+            renderSectionPages(sectionKey, editorId, thumbsId);
+            saveState();
+            if (appState.currentStep === totalSteps) {
+                generatePreview(appState.storyData);
+            }
+        });
+
+        // Editor de página seleccionada
+        editor.innerHTML = '';
+        if (!arr[selected]) return;
+        const page = arr[selected];
+                const uniqueId = `${sectionKey}-page-${selected}`;
+                const wrapper = document.createElement('div');
+        wrapper.className = 'writing-page dynamic';
+                        wrapper.innerHTML = `
+                                <div class="writing-row">
+                                        <div class="writing-area">
+                                            <div class="form-group" style="flex-grow:1; display:flex; flex-direction:column;">
+                                                <div class="writing-tools">
+                                                    <label for="${uniqueId}">Escribe aquí...</label>
+                                                    <button class="tool-btn idea-btn" data-target="${uniqueId}" title="Dame una idea"><i data-lucide="lightbulb"></i></button>
+                                                </div>
+                                                <div id="editor-${uniqueId}" class="rich-editor"></div>
+                                                <div class="writing-challenge" data-target="${uniqueId}"></div>
+                                            </div>
+                                        </div>
+                                        <div class="illustration-area">
+                                            <div class="illustration-preview" id="${sectionKey}-preview-${selected}">${page.imageUrl ? `<img src="${page.imageUrl}"/>` : ''}</div>
+                                        </div>
+                                </div>
+                        `;
+        editor.appendChild(wrapper);
+
+        // Bind idea and illustrate for this page
+        const ideaBtn = wrapper.querySelector('.idea-btn');
+        if (ideaBtn) {
+            ideaBtn.addEventListener('click', () => getWritingIdea(uniqueId));
+        }
+        // Initialize Quill editor and sync content/state
+        const editorEl = wrapper.querySelector(`#editor-${uniqueId}`);
+        if (editorEl) {
+            const q = new Quill(editorEl, {
+                theme: 'snow',
+                placeholder: 'Escribe aquí...',
+                modules: {
+                    toolbar: [
+                        [{ header: [1, 2, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link', 'clean']
+                    ]
+                }
+            });
+            quillEditors[uniqueId] = q;
+            // Set initial content (supports plain text or HTML)
+            if (page.text) {
+                // Heurística simple: si contiene etiquetas HTML, insertar como HTML, si no, como texto
+                const looksHTML = /<[^>]+>/g.test(page.text);
+                if (looksHTML) {
+                    q.root.innerHTML = page.text;
+                } else {
+                    q.setText(page.text);
+                }
+            }
+            q.on('text-change', () => {
+                const content = q.root.innerHTML;
+                const arrRef = appState.storyData[sectionKey];
+                if (Array.isArray(arrRef) && arrRef[selected]) {
+                    arrRef[selected].text = content;
+                    saveState();
+                    if (appState.currentStep === totalSteps) {
+                        generatePreview(appState.storyData);
+                    }
+                }
+            });
+        }
+    // Ilustrar ahora se gestiona desde la barra inferior
+    lucide.createIcons();
+    // Asegurar que la barra inferior refleje la página seleccionada
+    updateNavButtons();
+    };
+
     const renderAvatar = () => {
-        const char = appState.storyData.characters[appState.editingCharIndex];
-        if (!char) return;
         const preview = document.getElementById('avatar-preview');
         if (!preview) return;
-        if (char.avatar.builderMode === 'ai' && char.avatar.aiAvatarUrl) {
-            preview.innerHTML = `<img src="${char.avatar.aiAvatarUrl}" alt="Personaje generado por IA">`;
-        } else {
-            const { body, eyes, hair, clothing } = char.avatar;
-            const svgContent = `<svg viewBox="0 0 200 350">${
-                avatarParts.body[body] || ''
-            }${avatarParts.clothing[clothing] || ''}${avatarParts.hair[hair] || ''}${
-                avatarParts.eyes[eyes] || ''
-            }</svg>`;
-            preview.innerHTML = svgContent;
+        const char = appState.storyData.characters[appState.editingCharIndex];
+        if (!char) {
+            preview.innerHTML = '';
+            return;
         }
+    if (char.avatar.builderMode !== 'ai') char.avatar.builderMode = 'ai';
+    if (char.avatar.aiAvatarUrl) {
+            const d = char.details || {};
+            const line2 = [d.species, d.age].filter(Boolean).join(' · ');
+            const caption = `<div style="margin-top:8px; font-size:12px; color:#4a5568; text-align:center;">
+                <strong>${char.name || 'Personaje'}</strong>${line2 ? `<br/>${line2}` : ''}
+            </div>`;
+            preview.innerHTML = `<img src="${char.avatar.aiAvatarUrl}" alt="Avatar generado por IA" />${caption}`;
+            return;
+        }
+    preview.innerHTML = `<div style="color:#a0aec0; text-align:center;">Crea el personaje con IA para ver su imagen aquí</div>`;
     };
 
     const switchBuilderMode = (mode) => {
         const char = appState.storyData.characters[appState.editingCharIndex];
         if (!char) return;
-        char.avatar.builderMode = mode;
-        if (manualBuilder) manualBuilder.style.display = mode === 'manual' ? 'block' : 'none';
-        if (aiBuilder) aiBuilder.style.display = mode === 'ai' ? 'block' : 'none';
-        document.querySelectorAll('.mode-btn').forEach((btn) => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
-        });
-        renderAvatar();
-        saveState();
-    };
-
-    const createOptionButtons = () => {
-        Object.keys(avatarParts).forEach((part) => {
-            const container = document.getElementById(`${part}-options`);
-            if (!container) return;
-            container.innerHTML = '';
-            Object.keys(avatarParts[part]).forEach((option) => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.dataset.part = part;
-                btn.dataset.option = option;
-                btn.innerHTML = `<svg viewBox="0 0 100 100"><g transform="translate(-50, -120) scale(0.8)">${
-                    avatarParts[part][option]
-                }</g></svg>`;
-                container.appendChild(btn);
-            });
-        });
+    // Forzar siempre modo IA
+    if (!char) return;
+    char.avatar.builderMode = 'ai';
+    if (aiBuilder) aiBuilder.style.display = 'block';
+    renderAvatar();
+    saveState();
     };
 
     const updateSelectedButtons = () => {
         const char = appState.storyData.characters[appState.editingCharIndex];
         if (!char) return;
-        document.querySelectorAll('.option-btn').forEach((btn) => {
-            btn.classList.toggle('selected', char.avatar[btn.dataset.part] === btn.dataset.option);
-        });
+    // No hay opciones manuales que marcar
     };
 
     const switchCharacterTab = (index) => {
@@ -298,10 +531,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const char = appState.storyData.characters[index];
         if (!char) return;
         if (charNameInput) charNameInput.value = char.name;
-        switchBuilderMode(char.avatar.builderMode || 'manual');
+        switchBuilderMode('ai');
         renderCharacterTabs();
         renderAvatar();
-        updateSelectedButtons();
+        // Prefill role and details fields
+        const d = char.details || {};
+        if (charRoleSelect) charRoleSelect.value = char.type || 'protagonist';
+        if (charSpecies) charSpecies.value = d.species || '';
+        if (charAge) charAge.value = d.age || '';
+        if (charPersonality) charPersonality.value = d.personality || '';
+        if (charLikes) charLikes.value = d.likes || '';
+        if (charStrengths) charStrengths.value = d.strengths || '';
+        if (charWeaknesses) charWeaknesses.value = d.weaknesses || '';
+        if (charGoal) charGoal.value = d.goal || '';
+        if (charBackstory) charBackstory.value = d.backstory || '';
+        if (charStyle) charStyle.value = d.style || '';
     };
 
     const renderCharacterTabs = () => {
@@ -338,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
             characterTabsContainer.appendChild(addBtn);
         }
         lucide.createIcons();
-    };
+    }
 
     const addNewCharacter = () => {
         if (appState.storyData.characters.length >= 3) return;
@@ -358,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.storyData.characters.push(newChar);
         switchCharacterTab(appState.storyData.characters.length - 1);
         saveState();
-    };
+    }
 
     const deleteCharacter = (index) => {
         appState.storyData.characters.splice(index, 1);
@@ -424,6 +668,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    window.switchView = switchView;
+
     const showStep = (stepNumber, direction = 'forward') => {
         const oldStep = appState.currentStep;
         if (stepNumber === oldStep && direction !== 'none') return;
@@ -448,6 +694,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateNavButtons();
     };
 
+    window.showStep = showStep;
+
     const updateNavButtons = () => {
         const nav = document.querySelector('.navigation');
         if (nav && prevBtn && nextBtn) {
@@ -457,6 +705,89 @@ document.addEventListener('DOMContentLoaded', () => {
                 appState.currentStep === totalSteps - 1
                     ? '¡Ver mi cuento! <i data-lucide="book-open-check"></i>'
                     : 'Siguiente <i data-lucide="arrow-right"></i>';
+            // Render nav-level page controls between Prev/Next for steps 4–6
+            const navPC = document.getElementById('nav-page-controls');
+            if (navPC) {
+                if ([4, 5, 6].includes(appState.currentStep)) {
+                    const sectionKey = appState.currentStep === 4 ? 'introduction' : appState.currentStep === 5 ? 'development' : 'conclusion';
+                    const arr = Array.isArray(appState.storyData[sectionKey]) ? appState.storyData[sectionKey] : [];
+                    const selected = appState.pageSelection?.[sectionKey] ?? 0;
+                    navPC.innerHTML = `
+                        <button class="btn-compact nav-page-illustrate" title="Ilustrar escena" style="background-color: var(--ai-color);"><i data-lucide="image-plus"></i></button>
+                        <button class="btn-compact nav-page-move-up" ${selected === 0 ? 'disabled' : ''} title="Mover arriba"><i data-lucide="arrow-up"></i></button>
+                        <button class="btn-compact nav-page-move-down" ${selected >= arr.length - 1 ? 'disabled' : ''} title="Mover abajo"><i data-lucide="arrow-down"></i></button>
+                        <button class="btn-compact nav-page-duplicate" title="Duplicar página"><i data-lucide="copy"></i></button>
+                        <button class="btn-compact nav-page-delete" ${arr.length <= 1 ? 'disabled' : ''} title="Eliminar página"><i data-lucide="trash-2"></i></button>
+                    `;
+                    navPC.style.display = 'inline-flex';
+                    // Bind handlers using same logic as editor controls
+                    const illustrate = navPC.querySelector('.nav-page-illustrate');
+                    const moveUp = navPC.querySelector('.nav-page-move-up');
+                    const moveDown = navPC.querySelector('.nav-page-move-down');
+                    const duplicate = navPC.querySelector('.nav-page-duplicate');
+                    const del = navPC.querySelector('.nav-page-delete');
+                    illustrate?.addEventListener('click', () => {
+                        currentPageToIllustrate = { section: sectionKey, index: selected };
+                        const promptEl = document.getElementById('ai-scene-prompt');
+                        if (promptEl) promptEl.value = '';
+                        populateSceneCharacters();
+                        aiSceneModal?.classList.add('visible');
+                    });
+                    const rerender = () => {
+                        const edId = sectionKey === 'introduction' ? 'intro-editor' : sectionKey === 'development' ? 'dev-editor' : 'end-editor';
+                        const thId = sectionKey === 'introduction' ? 'intro-thumbs' : sectionKey === 'development' ? 'dev-thumbs' : 'end-thumbs';
+                        renderSectionPages(sectionKey, edId, thId);
+                        updateNavButtons();
+                        saveState();
+                        if (appState.currentStep === totalSteps) {
+                            generatePreview(appState.storyData);
+                        }
+                    };
+                    moveUp?.addEventListener('click', () => {
+                        if (selected <= 0) return;
+                        const a = appState.storyData[sectionKey];
+                        const tmp = a[selected - 1];
+                        a[selected - 1] = a[selected];
+                        a[selected] = tmp;
+                        appState.pageSelection[sectionKey] = selected - 1;
+                        rerender();
+                    });
+                    moveDown?.addEventListener('click', () => {
+                        const a = appState.storyData[sectionKey];
+                        if (selected >= a.length - 1) return;
+                        const tmp = a[selected + 1];
+                        a[selected + 1] = a[selected];
+                        a[selected] = tmp;
+                        appState.pageSelection[sectionKey] = selected + 1;
+                        rerender();
+                    });
+                    duplicate?.addEventListener('click', () => {
+                        const a = appState.storyData[sectionKey];
+                        if (!Array.isArray(a)) return;
+                        const src = a[selected] || { text: '', imageUrl: null, charactersIncluded: [] };
+                        const copy = {
+                            text: src.text || '',
+                            imageUrl: src.imageUrl || null,
+                            charactersIncluded: Array.isArray(src.charactersIncluded) ? [...src.charactersIncluded] : []
+                        };
+                        a.splice(selected + 1, 0, copy);
+                        appState.pageSelection[sectionKey] = selected + 1;
+                        rerender();
+                    });
+                    del?.addEventListener('click', () => {
+                        const a = appState.storyData[sectionKey];
+                        if (!Array.isArray(a) || a.length <= 1) return;
+                        if (!window.confirm('¿Seguro que quieres eliminar esta página?')) return;
+                        a.splice(selected, 1);
+                        const newIdx = Math.max(0, Math.min(selected, a.length - 1));
+                        appState.pageSelection[sectionKey] = newIdx;
+                        rerender();
+                    });
+                } else {
+                    navPC.innerHTML = '';
+                    navPC.style.display = 'none';
+                }
+            }
             lucide.createIcons();
         }
     };
@@ -471,7 +802,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 2: {
                 const char = data.characters[appState.editingCharIndex];
-                if (char && charNameInput) char.name = charNameInput.value;
+                if (char) {
+                    if (charNameInput) char.name = charNameInput.value;
+                    if (charRoleSelect) char.type = charRoleSelect.value || 'protagonist';
+                    char.details = char.details || {};
+                    char.details.species = charSpecies?.value || '';
+                    char.details.age = charAge?.value || '';
+                    char.details.personality = charPersonality?.value || '';
+                    char.details.likes = charLikes?.value || '';
+                    char.details.strengths = charStrengths?.value || '';
+                    char.details.weaknesses = charWeaknesses?.value || '';
+                    char.details.goal = charGoal?.value || '';
+                    char.details.backstory = charBackstory?.value || '';
+                    char.details.style = charStyle?.value || '';
+                }
                 break;
             }
             case 3: {
@@ -479,22 +823,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedScenarioCard) {
                     const el = selectedScenarioCard;
                     if (el.id === 'ai-scenario-card') {
-                        // Already saved via AI
+                        // Escenario guardado vía IA en otro flujo
                     } else {
                         data.scenario = { builderMode: 'manual', description: el.dataset.value };
                     }
                 }
                 break;
             }
-            case 4:
-                data.introduction.text = document.getElementById('plot-start')?.value || '';
+            case 4: {
+                // En modo dinámico (intro-editor presente), ya guardamos texto por Quill; no sobrescribir arrays
+                if (!document.getElementById('intro-editor')) {
+                    // Fallback legado
+                    const introPages = document.querySelectorAll('.plot-start-page');
+                    if (introPages.length > 0) {
+                        data.introduction = Array.from(introPages).map((el, idx) => ({
+                            text: el.value || '',
+                            imageUrl: (Array.isArray(data.introduction) ? data.introduction[idx]?.imageUrl : data.introduction?.imageUrl) || null
+                        }));
+                    } else {
+                        const el = document.getElementById('plot-start');
+                        const prev = data.introduction;
+                        data.introduction = {
+                            text: el?.value || '',
+                            imageUrl: (Array.isArray(prev) ? prev[0]?.imageUrl : prev?.imageUrl) || null
+                        };
+                    }
+                }
                 break;
-            case 5:
-                data.development.text = document.getElementById('plot-middle')?.value || '';
+            }
+            case 5: {
+                if (!document.getElementById('dev-editor')) {
+                    const devPages = document.querySelectorAll('.plot-middle-page');
+                    if (devPages.length > 0) {
+                        data.development = Array.from(devPages).map((el, idx) => ({
+                            text: el.value || '',
+                            imageUrl: (Array.isArray(data.development) ? data.development[idx]?.imageUrl : data.development?.imageUrl) || null
+                        }));
+                    } else {
+                        const el = document.getElementById('plot-middle');
+                        const prev = data.development;
+                        data.development = {
+                            text: el?.value || '',
+                            imageUrl: (Array.isArray(prev) ? prev[0]?.imageUrl : prev?.imageUrl) || null
+                        };
+                    }
+                }
                 break;
-            case 6:
-                data.conclusion.text = document.getElementById('plot-end')?.value || '';
+            }
+            case 6: {
+                if (!document.getElementById('end-editor')) {
+                    const endPages = document.querySelectorAll('.plot-end-page');
+                    if (endPages.length > 0) {
+                        data.conclusion = Array.from(endPages).map((el, idx) => ({
+                            text: el.value || '',
+                            imageUrl: (Array.isArray(data.conclusion) ? data.conclusion[idx]?.imageUrl : data.conclusion?.imageUrl) || null
+                        }));
+                    } else {
+                        const el = document.getElementById('plot-end');
+                        const prev = data.conclusion;
+                        data.conclusion = {
+                            text: el?.value || '',
+                            imageUrl: (Array.isArray(prev) ? prev[0]?.imageUrl : prev?.imageUrl) || null
+                        };
+                    }
+                }
                 break;
+            }
             case 7:
                 data.title = document.getElementById('story-title')?.value || '';
                 data.author = document.getElementById('author-name')?.value || '';
@@ -502,37 +896,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveState();
     };
-
     const populateForm = () => {
         const data = appState.storyData;
         initializeCharacters();
         const start = document.getElementById('plot-start');
         const middle = document.getElementById('plot-middle');
         const end = document.getElementById('plot-end');
-        if (start) start.value = data.introduction?.text || '';
-        if (middle) middle.value = data.development?.text || '';
-        if (end) end.value = data.conclusion?.text || '';
+        const introData = Array.isArray(data.introduction)
+            ? (data.introduction[0] || { text: '', imageUrl: null })
+            : (data.introduction || { text: '', imageUrl: null });
+        const devData = Array.isArray(data.development)
+            ? (data.development[0] || { text: '', imageUrl: null })
+            : (data.development || { text: '', imageUrl: null });
+        const endData = Array.isArray(data.conclusion)
+            ? (data.conclusion[0] || { text: '', imageUrl: null })
+            : (data.conclusion || { text: '', imageUrl: null });
+        if (start) start.value = introData.text || '';
+        if (middle) middle.value = devData.text || '';
+        if (end) end.value = endData.text || '';
 
         const introPreview = document.getElementById('preview-intro');
         if (introPreview)
-            introPreview.innerHTML = data.introduction?.imageUrl
-                ? `<img src="${data.introduction.imageUrl}">`
-                : '';
+            introPreview.innerHTML = introData.imageUrl ? `<img src="${introData.imageUrl}">` : '';
         const devPreview = document.getElementById('preview-dev');
         if (devPreview)
-            devPreview.innerHTML = data.development?.imageUrl
-                ? `<img src="${data.development.imageUrl}">`
-                : '';
+            devPreview.innerHTML = devData.imageUrl ? `<img src="${devData.imageUrl}">` : '';
         const endPreview = document.getElementById('preview-end');
         if (endPreview)
-            endPreview.innerHTML = data.conclusion?.imageUrl
-                ? `<img src="${data.conclusion.imageUrl}">`
-                : '';
+            endPreview.innerHTML = endData.imageUrl ? `<img src="${endData.imageUrl}">` : '';
 
-        const title = document.getElementById('story-title');
+    const title = document.getElementById('story-title');
         const author = document.getElementById('author-name');
         if (title) title.value = data.title || '';
         if (author) author.value = data.author || '';
+    const showNum = document.getElementById('show-page-numbers');
+    if (showNum) showNum.checked = !!appState.previewOptions?.showPageNumbers;
+
+        // Render dinámico si existen los contenedores
+        if (document.getElementById('intro-editor')) {
+            if (!Array.isArray(data.introduction) || data.introduction.length === 0) data.introduction = [{ text: '', imageUrl: null }];
+            if (!Array.isArray(data.development) || data.development.length === 0) data.development = [{ text: '', imageUrl: null }];
+            if (!Array.isArray(data.conclusion) || data.conclusion.length === 0) data.conclusion = [{ text: '', imageUrl: null }];
+            if (!data.cover) data.cover = { imageUrl: null, prompt: '' };
+
+            renderSectionPages('introduction', 'intro-editor', 'intro-thumbs');
+            renderSectionPages('development', 'dev-editor', 'dev-thumbs');
+            renderSectionPages('conclusion', 'end-editor', 'end-thumbs');
+
+            const coverPrev = document.getElementById('cover-preview');
+            if (coverPrev) coverPrev.innerHTML = data.cover?.imageUrl ? `<img src="${data.cover.imageUrl}" alt="Portada"/>` : '';
+        }
 
         document
             .querySelectorAll('#scenario-selector .selection-card')
@@ -565,25 +978,31 @@ document.addEventListener('DOMContentLoaded', () => {
             .map((c) => `<strong>${c.name || c.type}</strong>`)
             .join(', ');
         let scenarioIntro = story.scenario?.description || 'un lugar misterioso';
-        let content = `<p>Esta es la historia de ${charactersIntro} en ${scenarioIntro}.</p>`;
-        content += `<div class="preview-page">`;
-        if (story.introduction?.imageUrl)
-            content += `<div class="preview-page-image"><img src="${story.introduction.imageUrl}"></div>`;
-        if (story.introduction?.text)
-            content += `<div class="preview-page-text"><p>${story.introduction.text}</p></div>`;
-        content += `</div>`;
-        content += `<div class="preview-page">`;
-        if (story.development?.imageUrl)
-            content += `<div class="preview-page-image"><img src="${story.development.imageUrl}"></div>`;
-        if (story.development?.text)
-            content += `<div class="preview-page-text"><p>${story.development.text}</p></div>`;
-        content += `</div>`;
-        content += `<div class="preview-page">`;
-        if (story.conclusion?.imageUrl)
-            content += `<div class="preview-page-image"><img src="${story.conclusion.imageUrl}"></div>`;
-        if (story.conclusion?.text)
-            content += `<div class="preview-page-text"><p>${story.conclusion.text}</p></div>`;
-        content += `</div>`;
+    let content = '';
+        if (story.cover?.imageUrl) {
+            content += `<div class="preview-cover"><div class="cover-image"><img src="${story.cover.imageUrl}"></div><div class="cover-text"><h1>${story.title || ''}</h1><p>${story.author ? `por ${story.author}` : ''}</p></div></div>`;
+        } else {
+            content += `<p>Esta es la historia de ${charactersIntro} en ${scenarioIntro}.</p>`;
+        }
+        const buildPages = (section) => {
+            const val = story[section];
+            const pages = Array.isArray(val) ? val : (val ? [val] : []);
+            return pages
+        .map((p, idx) => {
+            const numberBadge = appState.previewOptions?.showPageNumbers ? `<div class="page-badge">${idx + 1}</div>` : '';
+            let block = `<div class="preview-page">${numberBadge}`;
+                    if (p?.imageUrl)
+                        block += `<div class="preview-page-image"><img src="${p.imageUrl}"></div>`;
+                    if (p?.text)
+                        block += `<div class="preview-page-text">${p.text}</div>`;
+                    block += `</div>`;
+                    return block;
+                })
+                .join('');
+        };
+        content += buildPages('introduction');
+        content += buildPages('development');
+        content += buildPages('conclusion');
         container.innerHTML = content;
     };
 
@@ -614,9 +1033,9 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.storyData = {
             characters: [],
             scenario: {},
-            introduction: { text: '', imageUrl: null },
-            development: { text: '', imageUrl: null },
-            conclusion: { text: '', imageUrl: null }
+            introduction: [{ text: '', imageUrl: null }],
+            development: [{ text: '', imageUrl: null }],
+            conclusion: [{ text: '', imageUrl: null }]
         };
         appState.currentStep = 1;
         appState.maxStepReached = 1;
@@ -626,7 +1045,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
         switchView('creator');
     };
-
     const setWritingChallenges = () => {
         document.querySelectorAll('.writing-challenge').forEach((el) => {
             el.textContent =
@@ -672,19 +1090,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners
     charNameInput?.addEventListener('input', saveData);
-    document.querySelector('.avatar-options')?.addEventListener('click', (e) => {
-        const optionBtn = e.target.closest('.option-btn');
-        if (optionBtn) {
-            const char = appState.storyData.characters[appState.editingCharIndex];
-            if (!char) return;
-            char.avatar[optionBtn.dataset.part] = optionBtn.dataset.option;
-            renderAvatar();
-            updateSelectedButtons();
-            saveState();
-        }
-        const modeBtn = e.target.closest('.mode-btn');
-        if (modeBtn) switchBuilderMode(modeBtn.dataset.mode);
-    });
+    charRoleSelect?.addEventListener('change', saveData);
+    [charSpecies, charAge, charPersonality, charLikes, charStrengths, charWeaknesses, charGoal, charBackstory, charStyle]
+        .forEach((el) => el?.addEventListener('input', saveData));
+    // Ya no hay opciones manuales ni conmutador de modo
 
     nextBtn?.addEventListener('click', () => {
         saveData();
@@ -771,9 +1180,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     rhymeInput?.addEventListener('input', debounce(findRhymes, 500));
 
-    document.getElementById('open-ai-assistant-btn')?.addEventListener('click', () =>
-        aiCharacterModal?.classList.add('visible')
-    );
+    document.getElementById('open-ai-assistant-btn')?.addEventListener('click', () => {
+        // Prefill modal from current ficha
+        const char = appState.storyData.characters[appState.editingCharIndex] || {};
+        const d = char.details || {};
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        setVal('ai-char-type', d.species || '');
+        setVal('ai-char-age', d.age || '');
+        setVal('ai-char-personality', d.personality || '');
+        setVal('ai-char-likes', d.likes || '');
+        setVal('ai-char-strengths', d.strengths || '');
+        setVal('ai-char-weaknesses', d.weaknesses || '');
+        setVal('ai-char-goal', d.goal || '');
+        const bs = document.getElementById('ai-char-backstory'); if (bs) bs.value = d.backstory || '';
+        setVal('ai-char-style', d.style || '');
+        // No hay campos de rol en el modal; el rol se edita en la ficha
+        aiCharacterModal?.classList.add('visible');
+    });
     document.getElementById('close-ai-modal')?.addEventListener('click', () =>
         aiCharacterModal?.classList.remove('visible')
     );
@@ -813,6 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPageToIllustrate = btn.getAttribute('data-page');
             const promptEl = document.getElementById('ai-scene-prompt');
             if (promptEl) promptEl.value = '';
+            populateSceneCharacters();
             aiSceneModal?.classList.add('visible');
         });
     });
@@ -826,8 +1250,88 @@ document.addEventListener('DOMContentLoaded', () => {
         .getElementById('generate-ai-scene-btn')
         ?.addEventListener('click', handleAISceneSubmit);
 
+    // Nuevos handlers para páginas dinámicas y portada
+    const addPage = (sectionKey) => {
+        if (!appState.storyData) appState.storyData = {};
+        if (!appState.storyData[sectionKey] || !Array.isArray(appState.storyData[sectionKey])) {
+            appState.storyData[sectionKey] = [];
+        }
+        if (!appState.pageSelection) appState.pageSelection = { introduction: 0, development: 0, conclusion: 0 };
+    appState.storyData[sectionKey].push({ text: '', imageUrl: null, charactersIncluded: [] });
+        appState.pageSelection[sectionKey] = appState.storyData[sectionKey].length - 1;
+        if (sectionKey === 'introduction') renderSectionPages('introduction', 'intro-editor', 'intro-thumbs');
+        if (sectionKey === 'development') renderSectionPages('development', 'dev-editor', 'dev-thumbs');
+        if (sectionKey === 'conclusion') renderSectionPages('conclusion', 'end-editor', 'end-thumbs');
+        saveState();
+    };
+
+    document.getElementById('add-intro-page-btn')?.addEventListener('click', () => addPage('introduction'));
+    document.getElementById('add-dev-page-btn')?.addEventListener('click', () => addPage('development'));
+    document.getElementById('add-end-page-btn')?.addEventListener('click', () => addPage('conclusion'));
+
+    // Toggle mostrar numeración en preview final
+    document.getElementById('show-page-numbers')?.addEventListener('change', (e) => {
+        appState.previewOptions = appState.previewOptions || { showPageNumbers: false };
+        appState.previewOptions.showPageNumbers = !!e.target.checked;
+        saveState();
+        if (appState.currentStep === totalSteps) {
+            generatePreview(appState.storyData);
+        }
+    });
+
+    // Delegate input save for dynamic page textareas
+    document.addEventListener('input', (e) => {
+        const ta = e.target;
+        if (ta && ta.classList && ta.classList.contains('page-text')) {
+            const sectionKey = ta.getAttribute('data-section');
+            const index = parseInt(ta.getAttribute('data-index')) || 0;
+            const arr = appState.storyData[sectionKey];
+            if (Array.isArray(arr) && arr[index]) {
+                arr[index].text = ta.value || '';
+                saveState();
+            }
+        }
+    });
+
+    // Generar portada con IA
+    document.getElementById('generate-cover-btn')?.addEventListener('click', async () => {
+        const prompt = document.getElementById('cover-prompt')?.value?.trim() || '';
+        const prev = document.getElementById('cover-preview');
+        if (prev) prev.innerHTML = '<div class="loader"></div>';
+        if (!prompt) {
+            if (prev) prev.innerHTML = '<small>Escribe una descripción para la portada.</small>';
+            return;
+        }
+        const imageUrl = await generateImage(prompt, 'cover');
+        if (imageUrl) {
+            appState.storyData.cover = { imageUrl, prompt };
+            populateForm();
+            saveData();
+            if (appState.currentStep === totalSteps) {
+                generatePreview(appState.storyData);
+            }
+        } else if (prev) {
+            prev.innerHTML = '<small>No se pudo generar la portada en este entorno.</small>';
+        }
+    });
+
+    // Live preview on title/author edits while on final step
+    document.getElementById('story-title')?.addEventListener('input', (e) => {
+        const val = e.target?.value || '';
+        appState.storyData.title = val;
+        saveState();
+        if (appState.currentStep === totalSteps) generatePreview(appState.storyData);
+    });
+    document.getElementById('author-name')?.addEventListener('input', (e) => {
+        const val = e.target?.value || '';
+        appState.storyData.author = val;
+        saveState();
+        if (appState.currentStep === totalSteps) generatePreview(appState.storyData);
+    });
+
     // Inicialización
     loadState();
     createOptionButtons();
+
     switchView(appState.currentView);
 });

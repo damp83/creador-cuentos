@@ -15,6 +15,43 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
    - `GOOGLE_API_KEY` – clave de Google AI Studio/Vertex AI (con acceso a Gemini/Imagen).
 3. Despliega. Las funciones estarán disponibles en `/api/ai/generate-text` y `/api/ai/generate-image`.
 
+## Despliegue con GitHub + Vercel
+Sigue estos pasos para que cada push/PR en GitHub se despliegue automáticamente en Vercel:
+
+1) Requisitos
+- Cuenta de GitHub con este repo (`main` como rama de producción).
+- Cuenta en Vercel y la app de Vercel instalada en tu GitHub (se hace al importar el repo).
+- Tu `GOOGLE_API_KEY` (Google AI Studio) con acceso a Gemini 1.5 e Imagen 3.
+
+2) Importar el repo en Vercel
+- En Vercel: New Project → Import Git Repository → elige este repo.
+- Root Directory: `/` (raíz del proyecto).
+- Build Command: deja vacío (no hay build, es estático + funciones serverless).
+- Output Directory: deja vacío.
+- Functions: ya están en `api/**` y el runtime Node 18 está fijado en `vercel.json`.
+
+3) Variables de entorno
+- En Project Settings → Environment Variables, añade `GOOGLE_API_KEY` para:
+   - Production
+   - Preview (para que funcione en PRs)
+   - Opcional: Development
+- Guarda y vuelve a desplegar si ya existía un deployment previo.
+
+4) Flujo de despliegue
+- Cada push a cualquier rama crea un Preview Deployment con su URL.
+- Los merges/push a `main` actualizan el Production Deployment.
+
+5) Comprobar
+- Abre la URL del deployment y usa la app.
+- Si ves errores 500 de las rutas `/api/ai/*`, revisa que `GOOGLE_API_KEY` esté configurada en el entorno correspondiente (Preview/Production) y que el modelo tenga acceso en tu cuenta.
+
+6) Dominio (opcional)
+- En Domains añade tu dominio y apunta los DNS según indique Vercel.
+
+Notas
+- No hay `package.json`; Vercel no instalará dependencias ni ejecutará build. Sirve `index.html`/`style.css`/`main.js` y expone `api/**` como funciones.
+- Si más adelante añades herramientas de build (por ejemplo, Vite), actualiza Build/Output y añade el directorio de salida.
+
 ## Desarrollo local
 - Instala Vercel CLI y ejecuta:
 
