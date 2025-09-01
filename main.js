@@ -1,5 +1,18 @@
 // JavaScript extraído de index.html
 document.addEventListener('DOMContentLoaded', () => {
+    // API base config: allows running UI on GitHub Pages and hitting Vercel serverless
+    const inferredApiBase = (() => {
+        const env = (typeof window !== 'undefined' && window.ENV_API_BASE) || '';
+        if (env) return env.replace(/\/$/, '');
+        // If hosted on GitHub Pages, default to your Vercel deployment (set your URL below if needed)
+        const isPages = /github\.io$/i.test(window.location.host);
+        if (isPages) {
+            // Change this to your Production or Preview URL if different
+            return 'https://<TU-PROYECTO>.vercel.app';
+        }
+        return '';
+    })();
+    const apiBase = inferredApiBase;
     // writingChallenges (constructor manual eliminado)
     const writingChallenges = [
         'Intenta describir cómo huele el lugar.',
@@ -63,9 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedState) appState = JSON.parse(savedState);
     };
 
-        const generateImage = async (prompt, type) => {
+    const generateImage = async (prompt, type) => {
             try {
-                const response = await fetch('/api/ai/generate-image', {
+        const response = await fetch(`${apiBase || ''}/api/ai/generate-image`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt, type })
@@ -77,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
                 }
                 if (!response.ok) {
-                    console.warn(`generate-image respondió ${response.status}. ¿Estás sirviendo las funciones /api?`);
+                    console.warn(`generate-image respondió ${response.status}. ¿La URL de la API es correcta?`);
                     return null;
                 }
                 if (result?.imageBase64) {
@@ -207,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
         }
 
-            const apiUrl = '/api/ai/generate-text';
+            const apiUrl = `${apiBase || ''}/api/ai/generate-text`;
             const systemPrompt =
             'Eres un asistente de escritura creativa para niños. Escribe de forma sencilla, imaginativa y divertida. Continúa la historia con una o dos frases cortas.';
             const userQuery = `Continúa este cuento infantil sobre ${protagonistName}. El texto actual es: "${currentText}"`;

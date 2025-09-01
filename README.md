@@ -65,3 +65,18 @@ Luego abre `http://localhost:3000`.
 ## Notas
 - No expongas tu API key en el cliente. El front ya llama a las rutas `/api/ai/*`.
 - Si quieres cambiar de modelo, edita `api/ai/generate-text.js` (const `model`).
+
+## GitHub Pages (UI) + Vercel (APIs)
+Si sirves la interfaz en GitHub Pages y las funciones en Vercel, debes apuntar el front a la URL de Vercel:
+
+1) En `index.html`, descomenta y pon tu dominio de Vercel:
+
+   // window.ENV_API_BASE = 'https://tu-proyecto.vercel.app';
+
+2) Alternativamente, deja esa línea comentada y edita en `main.js` el valor por defecto dentro de inferredApiBase para GitHub Pages.
+
+3) Verifica que las funciones responden en:
+   - https://tu-proyecto.vercel.app/api/ai/generate-text
+   - https://tu-proyecto.vercel.app/api/ai/generate-image
+
+Este repo ya añade CORS en las funciones (`Access-Control-Allow-Origin: *`) para que funcionen en orígenes distintos.

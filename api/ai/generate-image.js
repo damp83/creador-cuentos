@@ -1,3 +1,9 @@
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -14,8 +20,14 @@ function parseJsonBody(req) {
 }
 
 module.exports = async (req, res) => {
+  setCors(res);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'POST, OPTIONS');
     res.statusCode = 405;
     res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
@@ -40,11 +52,13 @@ module.exports = async (req, res) => {
 
     const fullPrompt = `${stylePart}: ${userPrompt}`;
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+    // Google AI Studio - Images API (Imagen 3)
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate?key=${apiKey}`;
 
     const payload = {
-      instances: [{ prompt: fullPrompt }],
-      parameters: { sampleCount: 1 },
+      model: 'imagen-3.0',
+      prompt: { text: fullPrompt },
+      // aspectRatio: '1:1' // opcional
     };
 
     const fetchRes = await fetch(apiUrl, {
@@ -54,8 +68,12 @@ module.exports = async (req, res) => {
     });
     const result = await fetchRes.json();
 
-    const imageBase64 = result?.predictions?.[0]?.bytesBase64Encoded;
-    if (!imageBase64) {
+    // Robust parse for different response shapes
+    const imageBase64 =
+      result?.images?.[0]?.image?.bytesBase64Encoded ||
+      result?.images?.[0]?.b64Data ||
+      result?.predictions?.[0]?.bytesBase64Encoded;
+  if (!imageBase64) {
       res.statusCode = 502;
       res.end(JSON.stringify({ error: 'No image generated', raw: result }));
       return;

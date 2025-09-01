@@ -1,5 +1,11 @@
 const https = require('https');
 
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -16,8 +22,14 @@ function parseJsonBody(req) {
 }
 
 module.exports = async (req, res) => {
+  setCors(res);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'POST, OPTIONS');
     res.statusCode = 405;
     res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
