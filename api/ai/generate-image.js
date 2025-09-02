@@ -100,6 +100,14 @@ module.exports = async (req, res) => {
       }
     }
     if (!ok) {
+      // Optional: dev fallback to aid testing without a working key/quota
+      if (String(process.env.IMAGE_DEV_PLACEHOLDER || '').toLowerCase() === 'true') {
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='768'><rect width='100%' height='100%' fill='#f7fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='#2d3748'>Placeholder (dev)\n${(userPrompt||'').slice(0,80)}</text></svg>`;
+        const base64 = Buffer.from(svg).toString('base64');
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ imageBase64: base64 }));
+        return;
+      }
       res.statusCode = 502;
       res.end(JSON.stringify({ error: 'Upstream image API error', status, statusText, raw: result }));
       return;

@@ -78,32 +78,38 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const generateImage = async (prompt, type) => {
+        // Limpia el último error antes de solicitar
+        appState.lastImageError = '';
+        try {
+            const response = await fetch(`${apiBase || ''}/api/ai/generate-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, type })
+            });
+            let result = null;
             try {
-        const response = await fetch(`${apiBase || ''}/api/ai/generate-image`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, type })
-                });
-                let result = null;
-                try {
-                    result = await response.json();
-                } catch (_) {
-                    // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
-                }
-                if (!response.ok) {
-                    const msg = result?.error || `HTTP ${response.status}`;
-                    console.warn(`generate-image no OK: ${msg}`);
-                    return null;
-                }
-                if (result?.imageBase64) {
-                    return `data:image/png;base64,${result.imageBase64}`;
-                }
-                return null;
-            } catch (error) {
-                console.error('Error generando imagen:', error);
+                result = await response.json();
+            } catch (_) {
+                // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
+            }
+            if (!response.ok) {
+                const upstreamMsg = result?.raw?.error?.message || result?.message;
+                const msg = result?.error || upstreamMsg || `HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
+                appState.lastImageError = String(msg || 'Error desconocido');
+                console.warn(`generate-image no OK: ${appState.lastImageError}`);
                 return null;
             }
-        };
+            if (result?.imageBase64) {
+                return `data:image/png;base64,${result.imageBase64}`;
+            }
+            appState.lastImageError = 'La API no devolvió imagen';
+            return null;
+        } catch (error) {
+            appState.lastImageError = String(error?.message || error);
+            console.error('Error generando imagen:', error);
+            return null;
+        }
+    };
 
     const handleAIGenerationSubmit = async () => {
         const type = document.getElementById('ai-char-type')?.value || '';

@@ -13,6 +13,9 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
 1. Crea el proyecto en Vercel y sube este directorio.
 2. En Variables de Entorno, añade:
    - `GOOGLE_API_KEY` – clave de Google AI Studio/Vertex AI (con acceso a Gemini/Imagen).
+   - Opcional: `GOOGLE_IMAGE_MODEL` (por defecto `imagen-3.0`).
+   - Opcional: `GOOGLE_IMAGE_AR` (ej. `1:1`, `16:9`).
+   - Opcional: `IMAGE_DEV_PLACEHOLDER` = `true` para devolver un placeholder SVG si la API de imágenes falla (solo útil para pruebas).
 3. Despliega. Las funciones estarán disponibles en `/api/ai/generate-text` y `/api/ai/generate-image`.
 
 ## Despliegue con GitHub + Vercel
@@ -65,6 +68,26 @@ Luego abre `http://localhost:3000`.
 ## Notas
 - No expongas tu API key en el cliente. El front ya llama a las rutas `/api/ai/*`.
 - Si quieres cambiar de modelo, edita `api/ai/generate-text.js` (const `model`).
+ - Para imágenes, puedes ajustar `GOOGLE_IMAGE_MODEL` y `GOOGLE_IMAGE_AR` sin tocar código.
+
+## Solución de problemas (502 en /api/ai/generate-image)
+Si ves `generate-image no OK: Upstream image API error` en la consola:
+
+1) Comprueba la API desde la UI
+   - En el paso Portada, pulsa “Comprobar API”. Debe indicar `API OK · GOOGLE_API_KEY: sí`.
+   - Si dice `no`, añade la variable en Vercel (Production/Preview) y vuelve a desplegar.
+
+2) Revisa permisos/cuota del modelo
+   - En Google AI Studio, confirma que tu clave tiene acceso al endpoint de imágenes (Imagen 3) en tu región.
+   - Cambia temporalmente el modelo con `GOOGLE_IMAGE_MODEL=imagen-3.0` (o el vigente) y reintenta.
+
+3) CORS o base URL
+   - Si sirves la UI en otro dominio (p. ej., GitHub Pages), define `window.ENV_API_BASE` en `index.html` con tu dominio de Vercel.
+
+4) Prueba con placeholder de desarrollo
+   - Ajusta `IMAGE_DEV_PLACEHOLDER=true` para que la función devuelva una imagen SVG temporal y validar el flujo de extremo a extremo.
+
+Si el problema persiste, mira la respuesta detallada en la consola (hemos mejorado los mensajes del front) y los logs de Vercel.
 
 ## GitHub Pages (UI) + Vercel (APIs)
 Si sirves la interfaz en GitHub Pages y las funciones en Vercel, debes apuntar el front a la URL de Vercel:
