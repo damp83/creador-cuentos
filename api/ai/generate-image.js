@@ -106,11 +106,20 @@ module.exports = async (req, res) => {
         const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='768'><rect width='100%' height='100%' fill='#f7fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='#2d3748'>Placeholder (dev)\n${(userPrompt||'').slice(0,80)}</text></svg>`;
         const base64 = Buffer.from(svg).toString('base64');
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ imageBase64: base64 }));
+        res.end(JSON.stringify({ imageBase64: base64, imageMime: 'image/svg+xml' }));
         return;
       }
+      const upstreamMsg = result?.error?.message || result?.message || result?.text || statusText;
+      const upstreamCode = result?.error?.status || result?.error?.code || undefined;
       res.statusCode = 502;
-      res.end(JSON.stringify({ error: 'Upstream image API error', status, statusText, raw: result }));
+      res.end(JSON.stringify({
+        error: 'Upstream image API error',
+        message: upstreamMsg,
+        code: upstreamCode,
+        status,
+        statusText,
+        raw: result
+      }));
       return;
     }
 

@@ -100,7 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return null;
             }
             if (result?.imageBase64) {
-                return `data:image/png;base64,${result.imageBase64}`;
+                const mime = result?.imageMime || 'image/png';
+                return `data:${mime};base64,${result.imageBase64}`;
             }
             appState.lastImageError = 'La API no devolvió imagen';
             return null;
