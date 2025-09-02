@@ -18,6 +18,10 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
    - Opcional: `GOOGLE_IMAGE_AR` (ej. `1:1`, `16:9`).
    - Opcional: `IMAGE_DEV_PLACEHOLDER` = `true` para devolver un placeholder SVG si la API de imágenes falla (solo útil para pruebas).
    - Opcional: `IMAGE_DEBUG` = `true` para añadir logs estructurados y un `rid` (request id) en respuestas y logs.
+    - Opcional (proveedor alternativo OpenAI):
+       - `IMAGE_PROVIDER` = `openai`
+       - `OPENAI_API_KEY` (o `CHATGPT_API_KEY`/`ChatGPT_API_KEY`)
+       - `OPENAI_IMAGE_MODEL` (por defecto `gpt-image-1`)
 3. Despliega. Las funciones estarán disponibles en `/api/ai/generate-text` y `/api/ai/generate-image`.
 
 ## Despliegue con GitHub + Vercel
@@ -94,6 +98,11 @@ Si el problema persiste, mira la respuesta detallada en la consola (hemos mejora
 5) Activar modo debug y correlación de solicitudes
    - Define `IMAGE_DEBUG=true` y vuelve a desplegar.
    - Cada respuesta incluirá `rid` y en los logs de Vercel verás entradas JSON con ese mismo `rid` (campos como `call.primary.failed`, `upstream.error`). Úsalo para correlacionar y ver el `status/statusText` y mensaje real del proveedor.
+
+6) Probar con OpenAI (ChatGPT) como proveedor de imágenes
+   - En Vercel define: `IMAGE_PROVIDER=openai` y `OPENAI_API_KEY`.
+   - Opcional: `OPENAI_IMAGE_MODEL=gpt-image-1`.
+   - El tamaño se mapea automáticamente desde `GOOGLE_IMAGE_AR` si lo defines: `1:1→1024x1024`, `16:9→1344x768`, `9:16→768x1344`, `4:3→1024x768`, `3:2→1200x800`.
 
 ## GitHub Pages (UI) + Vercel (APIs)
 Si sirves la interfaz en GitHub Pages y las funciones en Vercel, debes apuntar el front a la URL de Vercel:
