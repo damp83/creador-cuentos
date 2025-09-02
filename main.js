@@ -17,8 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const envBase = (typeof window !== 'undefined' && window.ENV_API_BASE) || '';
-    const apiBase = normalizeApiBase(envBase);
+    let apiBase = normalizeApiBase(envBase);
     const onGithubPages = /github\.io$/i.test(window.location.host);
+    if (onGithubPages && !apiBase) {
+        // Fallback automático para este proyecto cuando se ejecuta en GitHub Pages
+        const fallback = 'https://creador-cuentos-c24w.vercel.app';
+        apiBase = normalizeApiBase(fallback);
+        console.warn('ENV_API_BASE no configurado; usando fallback a Vercel:', apiBase);
+    }
     const crossOriginRequired = onGithubPages && !apiBase;
     if (envBase && !apiBase) {
         console.warn('ENV_API_BASE inválido; usando rutas relativas. Valor recibido:', envBase);
