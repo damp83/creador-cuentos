@@ -111,7 +111,12 @@ module.exports = async (req, res) => {
         res.end(JSON.stringify({ error: 'Missing OPENAI_API_KEY (o CHATGPT_API_KEY)', rid }));
         return;
       }
-      const oaModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+      const rawModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+      const allowedModels = new Set(['gpt-image-1', 'gpt-image-0721-mini-alpha', 'dall-e-3', 'dall-e-2']);
+      const oaModel = allowedModels.has(String(rawModel)) ? String(rawModel) : 'gpt-image-1';
+      if (oaModel !== rawModel) {
+        log('debug', 'openai.model.invalid.fallback', { provided: rawModel, using: oaModel });
+      }
       log('debug', 'provider.openai.request', { size: sizeFromAspect(aspect), model: oaModel });
       const { ok, status, statusText, result } = await callOpenAIImages(oaModel, fullPrompt, sizeFromAspect(aspect), oaKey);
       if (!ok) {
@@ -127,11 +132,14 @@ module.exports = async (req, res) => {
         }
         const upstreamMsg = result?.error?.message || result?.message || result?.text || statusText;
         const upstreamCode = result?.error?.type || result?.error?.code || undefined;
+        const friendlyModelMsg = (status === 400 && /Invalid value/i.test(String(upstreamMsg || '')))
+          ? 'Modelo de OpenAI inválido en OPENAI_IMAGE_MODEL. Usa uno de: gpt-image-1, gpt-image-0721-mini-alpha, dall-e-3 o dall-e-2.'
+          : null;
         log('error', 'openai.upstream.error', { status, statusText, upstreamCode, upstreamMsg });
         res.statusCode = 502;
         res.end(JSON.stringify({
           error: 'Upstream image API error (OpenAI)',
-          message: upstreamMsg,
+          message: friendlyModelMsg || upstreamMsg,
           code: upstreamCode,
           status,
           statusText,
