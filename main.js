@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentStep: 1,
         maxStepReached: 1,
         editingCharIndex: 0,
-        storyData: {
+    lastImageError: '',
+    storyData: {
             characters: [],
             scenario: {},
             cover: { imageUrl: null, prompt: '' },
@@ -175,7 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveState();
             }
         } else if (avatarPreview) {
-            avatarPreview.innerHTML = 'Error al crear la imagen.';
+            const hint = appState.lastImageError?.includes('Missing GOOGLE_API_KEY')
+                ? '<br/><small style="color:#a0aec0">Falta GOOGLE_API_KEY en el servidor. Añade tu clave y vuelve a intentar.</small>'
+                : (appState.lastImageError ? `<br/><small style=\"color:#a0aec0\">${appState.lastImageError}</small>` : '');
+            avatarPreview.innerHTML = `Error al crear la imagen.${hint}`;
         }
     };
 
@@ -320,7 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 generatePreview(appState.storyData);
             }
         } else if (preview) {
-            preview.innerHTML = 'Error al crear la imagen.';
+            const hint = appState.lastImageError?.includes('Missing GOOGLE_API_KEY')
+                ? '<br/><small style="color:#a0aec0">Falta GOOGLE_API_KEY en el servidor. Añade tu clave y vuelve a intentar.</small>'
+                : (appState.lastImageError ? `<br/><small style=\"color:#a0aec0\">${appState.lastImageError}</small>` : '');
+            preview.innerHTML = `Error al crear la imagen.${hint}`;
         }
         aiSceneModal?.classList.remove('visible');
     };
@@ -1325,7 +1332,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 generatePreview(appState.storyData);
             }
         } else if (prev) {
-            prev.innerHTML = '<small>No se pudo generar la portada en este entorno.</small>';
+            const hint = appState.lastImageError?.includes('Missing GOOGLE_API_KEY')
+                ? ' Falta GOOGLE_API_KEY en el servidor. Añade tu clave y vuelve a intentar.'
+                : (appState.lastImageError ? ` Detalle: ${appState.lastImageError}` : '');
+            prev.innerHTML = `<small>No se pudo generar la portada.${hint}</small>`;
         }
     });
 
@@ -1341,6 +1351,21 @@ document.addEventListener('DOMContentLoaded', () => {
         appState.storyData.author = val;
         saveState();
         if (appState.currentStep === totalSteps) generatePreview(appState.storyData);
+    });
+
+    // Health check for API
+    document.getElementById('check-api-btn')?.addEventListener('click', async () => {
+        const label = document.getElementById('api-health');
+        if (label) label.textContent = 'Comprobando...';
+        try {
+            const res = await fetch(`${apiBase || ''}/api/health`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const hasKey = data?.env?.hasGoogleKey ? 'sí' : 'no';
+            if (label) label.textContent = `API OK · GOOGLE_API_KEY: ${hasKey}`;
+        } catch (e) {
+            if (label) label.textContent = `API ERROR: ${e?.message || e}`;
+        }
     });
 
     // Inicialización
