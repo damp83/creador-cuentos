@@ -118,10 +118,24 @@
                                         </div>
                                     </div>
                                 </div>
-                                <small style="color:#718096">La imagen aparecerá aquí abajo</small>
                             </div>
-                            <div class="illustration-preview" id="cover-preview" style="margin-top: 12px;"></div>
                         </div>
+                    </div>
+                </section>
+                <section id="step3" class="main-content">
+                    <div class="step-header"><h2>Portada</h2><p>Crea una portada llamativa para tu cuento.</p></div>
+                    <div class="step-content">
+                        <div class="form-group">
+                            <label for="cover-prompt">Describe tu portada</label>
+                            <textarea id="cover-prompt" rows="3" placeholder="Ej: Un título grande con letras de caramelo, un fondo de cielo estrellado y los personajes sonrientes"></textarea>
+                        </div>
+                        <div style="display:flex; gap:12px; align-items:center; margin: 8px 0 16px 0;">
+                            <button id="generate-cover-btn" class="nav-btn" style="background-color: var(--ai-color);">
+                                <i data-lucide="image"></i> Generar Portada con IA
+                            </button>
+                            <small style="color:#718096">La portada se guardará automáticamente</small>
+                        </div>
+                        <div class="illustration-preview" id="cover-preview"></div>
                     </div>
                 </section>
                 <section id="step4" class="main-content">

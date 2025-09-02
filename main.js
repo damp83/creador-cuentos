@@ -90,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
                 }
                 if (!response.ok) {
-                    console.warn(`generate-image respondió ${response.status}. ¿La URL de la API es correcta?`);
+                    const msg = result?.error || `HTTP ${response.status}`;
+                    console.warn(`generate-image no OK: ${msg}`);
                     return null;
                 }
                 if (result?.imageBase64) {

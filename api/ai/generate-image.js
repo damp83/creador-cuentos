@@ -66,7 +66,27 @@ module.exports = async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const result = await fetchRes.json();
+    let result = null;
+    try {
+      result = await fetchRes.json();
+    } catch (e) {
+      // If upstream returned non-JSON, capture text for debugging
+      const txt = await fetchRes.text().catch(() => '');
+      result = { nonJson: true, status: fetchRes.status, text: txt };
+    }
+
+    if (!fetchRes.ok) {
+      res.statusCode = 502;
+      res.end(
+        JSON.stringify({
+          error: 'Upstream image API error',
+          status: fetchRes.status,
+          statusText: fetchRes.statusText,
+          raw: result,
+        })
+      );
+      return;
+    }
 
     // Robust parse for different response shapes
     const imageBase64 =
