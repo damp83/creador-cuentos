@@ -63,10 +63,10 @@ module.exports = async (req, res) => {
     const type = body.type || 'scenario';
     const userPrompt = body.prompt || '';
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
     if (!apiKey) {
       res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY', rid }));
+      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)', rid }));
       return;
     }
 
@@ -149,11 +149,14 @@ module.exports = async (req, res) => {
       }
       const upstreamMsg = result?.error?.message || result?.message || result?.text || statusText;
       const upstreamCode = result?.error?.status || result?.error?.code || undefined;
+      const friendly404 = status === 404
+        ? 'El endpoint de Google AI Images respondió 404 (no disponible). Suele indicar que tu API key no tiene acceso a Imagen 3 o que el servicio no está habilitado para tu proyecto/región. Activa Google AI Images en AI Studio con esta clave o usa un proveedor alternativo.'
+        : null;
       log('error', 'upstream.error', { status, statusText, upstreamCode, upstreamMsg });
       res.statusCode = 502;
       res.end(JSON.stringify({
         error: 'Upstream image API error',
-        message: upstreamMsg,
+        message: friendly404 || upstreamMsg,
         code: upstreamCode,
         status,
         statusText,

@@ -12,7 +12,8 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
 ## Configuración en Vercel
 1. Crea el proyecto en Vercel y sube este directorio.
 2. En Variables de Entorno, añade:
-   - `GOOGLE_API_KEY` – clave de Google AI Studio/Vertex AI (con acceso a Gemini/Imagen).
+    - `GOOGLE_API_KEY` – clave de Google AI Studio/Vertex AI (con acceso a Gemini/Imagen).
+       - Alternativamente: `Geminis_Api_key` o `GEMINIS_API_KEY` (se aceptan como alias del API key).
    - Opcional: `GOOGLE_IMAGE_MODEL` (por defecto `imagen-3.0-generate-002`).
    - Opcional: `GOOGLE_IMAGE_AR` (ej. `1:1`, `16:9`).
    - Opcional: `IMAGE_DEV_PLACEHOLDER` = `true` para devolver un placeholder SVG si la API de imágenes falla (solo útil para pruebas).
@@ -75,7 +76,7 @@ Luego abre `http://localhost:3000`.
 Si ves `generate-image no OK: Upstream image API error` en la consola:
 
 1) Comprueba la API desde la UI
-   - En el paso Portada, pulsa “Comprobar API”. Debe indicar `API OK · GOOGLE_API_KEY: sí`.
+   - En el paso Portada, pulsa “Comprobar API”. Debe indicar `API OK · GOOGLE_API_KEY: sí` (acepta también Geminis_Api_key/GEMINIS_API_KEY).
    - Si dice `no`, añade la variable en Vercel (Production/Preview) y vuelve a desplegar.
 
 2) Revisa permisos/cuota del modelo

@@ -41,14 +41,14 @@ module.exports = async (req, res) => {
     const systemPrompt = body.systemPrompt || '';
     const model = body.model || 'gemini-1.5-flash';
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
     if (!apiKey) {
       res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY' }));
+      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)' }));
       return;
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
       contents: [{ parts: [{ text: prompt }] }],
