@@ -19,10 +19,12 @@ function parseJsonBody(req) {
   });
 }
 
-async function callGoogleImages(apiUrl, payload) {
+async function callGoogleImages(apiUrl, payload, apiKey, useHeader = true) {
   const fetchRes = await fetch(apiUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: useHeader
+      ? { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
+      : { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   let result = null;
@@ -71,8 +73,8 @@ module.exports = async (req, res) => {
     // Google AI Studio - Images API (Imagen 3)
   const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0';
   const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
-  const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate?key=${apiKey}`;
-  const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage?key=${apiKey}`;
+  const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
+  const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
 
     const payload = {
       model,
@@ -80,11 +82,22 @@ module.exports = async (req, res) => {
       ...(aspect ? { aspectRatio: aspect } : {})
     };
     // Try primary endpoint
-    let { ok, status, statusText, result } = await callGoogleImages(primaryUrl, payload);
+    let { ok, status, statusText, result } = await callGoogleImages(primaryUrl, payload, apiKey, true);
     // If primary fails, try alternate endpoint signature
     if (!ok) {
-      const alt = await callGoogleImages(altUrl, payload);
+      const alt = await callGoogleImages(altUrl, payload, apiKey, true);
       ok = alt.ok; status = alt.status; statusText = alt.statusText; result = alt.result;
+    }
+    // If header auth fails, try query key as last resort
+    if (!ok) {
+      const sep1 = primaryUrl.includes('?') ? '&' : '?';
+      const sep2 = altUrl.includes('?') ? '&' : '?';
+      const p2 = await callGoogleImages(`${primaryUrl}${sep1}key=${apiKey}`, payload, apiKey, false);
+      ok = p2.ok; status = p2.status; statusText = p2.statusText; result = p2.result;
+      if (!ok) {
+        const a2 = await callGoogleImages(`${altUrl}${sep2}key=${apiKey}`, payload, apiKey, false);
+        ok = a2.ok; status = a2.status; statusText = a2.statusText; result = a2.result;
+      }
     }
     if (!ok) {
       res.statusCode = 502;
