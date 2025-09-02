@@ -115,9 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Respuesta sin JSON (p.ej. 404/405 en servidor estático)
             }
             if (!response.ok) {
-                const upstreamMsg = result?.raw?.error?.message || result?.message;
-                const msg = result?.error || upstreamMsg || `HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
-                appState.lastImageError = String(msg || 'Error desconocido');
+                const upstreamMsg = result?.message || result?.raw?.error?.message;
+                const rid = result?.rid ? ` [rid: ${result.rid}]` : '';
+                const msg = upstreamMsg || result?.error || `HTTP ${response.status}${response.statusText ? ' ' + response.statusText : ''}`;
+                appState.lastImageError = String((msg || 'Error desconocido') + rid);
                 console.warn(`generate-image no OK: ${appState.lastImageError}`);
                 return null;
             }
