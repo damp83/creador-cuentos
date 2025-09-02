@@ -45,7 +45,7 @@ async function callOpenAIImages(model, prompt, size, apiKey) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({ model, prompt, size, response_format: 'b64_json' })
+    body: JSON.stringify({ model, prompt, size })
   });
   let result = null;
   try {
@@ -55,6 +55,13 @@ async function callOpenAIImages(model, prompt, size, apiKey) {
     result = { nonJson: true, status: fetchRes.status, text: txt };
   }
   return { ok: fetchRes.ok, status: fetchRes.status, statusText: fetchRes.statusText, result };
+}
+
+async function fetchUrlAsBase64(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Failed to fetch image URL: HTTP ${r.status}`);
+  const ab = await r.arrayBuffer();
+  return Buffer.from(ab).toString('base64');
 }
 
 module.exports = async (req, res) => {
@@ -148,7 +155,17 @@ module.exports = async (req, res) => {
         }));
         return;
       }
-      const b64 = result?.data?.[0]?.b64_json;
+      let b64 = result?.data?.[0]?.b64_json;
+      if (!b64) {
+        const url = result?.data?.[0]?.url;
+        if (url) {
+          try {
+            b64 = await fetchUrlAsBase64(url);
+          } catch (e) {
+            log('error', 'openai.fetch.url.failed', { err: String(e?.message || e) });
+          }
+        }
+      }
       if (!b64) {
         log('error', 'openai.no.image.in.response');
         res.statusCode = 502;
