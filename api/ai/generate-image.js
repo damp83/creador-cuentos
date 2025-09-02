@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const stylePart =
+  const stylePart =
       type === 'character'
         ? 'ilustración para un cuento infantil, estilo dibujo animado, colores vivos, cuerpo completo, sin texto, fondo blanco'
         : 'ilustración para un cuento infantil, estilo dibujo animado, colores vivos, paisaje fantástico, sin texto';
@@ -69,13 +69,15 @@ module.exports = async (req, res) => {
     const fullPrompt = `${stylePart}: ${userPrompt}`;
 
     // Google AI Studio - Images API (Imagen 3)
-    const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate?key=${apiKey}`;
-    const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0:generateImage?key=${apiKey}`;
+  const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0';
+  const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
+  const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate?key=${apiKey}`;
+  const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage?key=${apiKey}`;
 
     const payload = {
-      model: 'imagen-3.0',
+      model,
       prompt: { text: fullPrompt },
-      // aspectRatio: '1:1' // opcional
+      ...(aspect ? { aspectRatio: aspect } : {})
     };
     // Try primary endpoint
     let { ok, status, statusText, result } = await callGoogleImages(primaryUrl, payload);
