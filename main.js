@@ -1,18 +1,26 @@
 // JavaScript extraído de index.html
 document.addEventListener('DOMContentLoaded', () => {
-    // API base config: allows running UI on GitHub Pages and hitting Vercel serverless
-    const inferredApiBase = (() => {
-        const env = (typeof window !== 'undefined' && window.ENV_API_BASE) || '';
-        if (env) return env.replace(/\/$/, '');
-        // If hosted on GitHub Pages, default to your Vercel deployment (set your URL below if needed)
-        const isPages = /github\.io$/i.test(window.location.host);
-        if (isPages) {
-            // Change this to your Production or Preview URL if different
-            return 'https://<TU-PROYECTO>.vercel.app';
+    // API base config: prefer relative paths unless a valid ENV_API_BASE is provided
+    const normalizeApiBase = (val) => {
+        if (!val || typeof val !== 'string') return '';
+        const trimmed = val.trim().replace(/\/$/, '');
+        if (!/^https?:\/\//i.test(trimmed)) return '';
+        // Accept only hosts with at least two labels (e.g., sub.domain) and no leading dot
+        try {
+            const u = new URL(trimmed);
+            const host = u.hostname || '';
+            const isValidHost = host.length > 0 && !host.startsWith('.') && /^(?:[a-z0-9-]+\.)+[a-z0-9-]+$/i.test(host);
+            if (!isValidHost) return '';
+            return `${u.protocol}//${u.host}`;
+        } catch {
+            return '';
         }
-        return '';
-    })();
-    const apiBase = inferredApiBase;
+    };
+    const envBase = (typeof window !== 'undefined' && window.ENV_API_BASE) || '';
+    const apiBase = normalizeApiBase(envBase);
+    if (envBase && !apiBase) {
+        console.warn('ENV_API_BASE inválido; usando rutas relativas. Valor recibido:', envBase);
+    }
     // writingChallenges (constructor manual eliminado)
     const writingChallenges = [
         'Intenta describir cómo huele el lugar.',
