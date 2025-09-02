@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const envBase = (typeof window !== 'undefined' && window.ENV_API_BASE) || '';
     const apiBase = normalizeApiBase(envBase);
+    const onGithubPages = /github\.io$/i.test(window.location.host);
+    const crossOriginRequired = onGithubPages && !apiBase;
     if (envBase && !apiBase) {
         console.warn('ENV_API_BASE inválido; usando rutas relativas. Valor recibido:', envBase);
     }
@@ -88,6 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateImage = async (prompt, type) => {
         // Limpia el último error antes de solicitar
         appState.lastImageError = '';
+        if (crossOriginRequired) {
+            const msg = 'Base de API no configurada (ENV_API_BASE). Estás en GitHub Pages y las llamadas irán a este dominio, lo que causa 405.';
+            appState.lastImageError = msg;
+            console.warn(msg + ' Define window.ENV_API_BASE = "https://<tu-app>.vercel.app" en index.html.');
+            return null;
+        }
         try {
             const response = await fetch(`${apiBase || ''}/api/ai/generate-image`, {
                 method: 'POST',
