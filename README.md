@@ -16,6 +16,7 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
    - Opcional: `GOOGLE_IMAGE_MODEL` (por defecto `imagen-3.0-generate-002`).
    - Opcional: `GOOGLE_IMAGE_AR` (ej. `1:1`, `16:9`).
    - Opcional: `IMAGE_DEV_PLACEHOLDER` = `true` para devolver un placeholder SVG si la API de imágenes falla (solo útil para pruebas).
+   - Opcional: `IMAGE_DEBUG` = `true` para añadir logs estructurados y un `rid` (request id) en respuestas y logs.
 3. Despliega. Las funciones estarán disponibles en `/api/ai/generate-text` y `/api/ai/generate-image`.
 
 ## Despliegue con GitHub + Vercel
@@ -88,6 +89,10 @@ Si ves `generate-image no OK: Upstream image API error` en la consola:
    - Ajusta `IMAGE_DEV_PLACEHOLDER=true` para que la función devuelva una imagen SVG temporal y validar el flujo de extremo a extremo.
 
 Si el problema persiste, mira la respuesta detallada en la consola (hemos mejorado los mensajes del front) y los logs de Vercel.
+
+5) Activar modo debug y correlación de solicitudes
+   - Define `IMAGE_DEBUG=true` y vuelve a desplegar.
+   - Cada respuesta incluirá `rid` y en los logs de Vercel verás entradas JSON con ese mismo `rid` (campos como `call.primary.failed`, `upstream.error`). Úsalo para correlacionar y ver el `status/statusText` y mensaje real del proveedor.
 
 ## GitHub Pages (UI) + Vercel (APIs)
 Si sirves la interfaz en GitHub Pages y las funciones en Vercel, debes apuntar el front a la URL de Vercel:

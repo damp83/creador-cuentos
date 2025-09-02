@@ -38,6 +38,13 @@ async function callGoogleImages(apiUrl, payload, apiKey, useHeader = true) {
 }
 
 module.exports = async (req, res) => {
+  const debug = String(process.env.IMAGE_DEBUG || '').toLowerCase() === 'true';
+  const rid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const log = (level, msg, extra) => {
+    if (!debug && level === 'debug') return;
+    const record = { level, rid, msg, ...(extra || {}) };
+    try { console[level === 'error' ? 'error' : 'log'](JSON.stringify(record)); } catch {}
+  };
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -59,7 +66,7 @@ module.exports = async (req, res) => {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY' }));
+      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY', rid }));
       return;
     }
 
@@ -82,12 +89,30 @@ module.exports = async (req, res) => {
       prompt: { text: fullPrompt },
       ...(aspect ? { aspectRatio: aspect } : {})
     };
+    log('debug', 'request.received', {
+      type,
+      model,
+      aspect: aspect || null,
+      promptChars: fullPrompt.length,
+    });
     // Try primary endpoint
     let { ok, status, statusText, result } = await callGoogleImages(primaryUrl, payload, apiKey, true);
+    if (!ok) {
+      const upstreamMsg1 = result?.error?.message || result?.message || result?.text || statusText;
+      log('debug', 'call.primary.failed', { status, statusText, upstreamMsg: upstreamMsg1 });
+    } else {
+      log('debug', 'call.primary.ok', { status });
+    }
     // If primary fails, try alternate endpoint signature
     if (!ok) {
       const alt = await callGoogleImages(altUrl, payload, apiKey, true);
       ok = alt.ok; status = alt.status; statusText = alt.statusText; result = alt.result;
+      if (!ok) {
+        const upstreamMsg2 = result?.error?.message || result?.message || result?.text || statusText;
+        log('debug', 'call.alt.failed', { status, statusText, upstreamMsg: upstreamMsg2 });
+      } else {
+        log('debug', 'call.alt.ok', { status });
+      }
     }
     // If header auth fails, try query key as last resort
     if (!ok) {
@@ -96,8 +121,19 @@ module.exports = async (req, res) => {
       const p2 = await callGoogleImages(`${primaryUrl}${sep1}key=${apiKey}`, payload, apiKey, false);
       ok = p2.ok; status = p2.status; statusText = p2.statusText; result = p2.result;
       if (!ok) {
+        log('debug', 'call.primaryQueryKey.failed', { status, statusText });
+      } else {
+        log('debug', 'call.primaryQueryKey.ok', { status });
+      }
+      if (!ok) {
         const a2 = await callGoogleImages(`${altUrl}${sep2}key=${apiKey}`, payload, apiKey, false);
         ok = a2.ok; status = a2.status; statusText = a2.statusText; result = a2.result;
+        if (!ok) {
+          const upstreamMsg4 = result?.error?.message || result?.message || result?.text || statusText;
+          log('debug', 'call.altQueryKey.failed', { status, statusText, upstreamMsg: upstreamMsg4 });
+        } else {
+          log('debug', 'call.altQueryKey.ok', { status });
+        }
       }
     }
     if (!ok) {
@@ -105,12 +141,15 @@ module.exports = async (req, res) => {
       if (String(process.env.IMAGE_DEV_PLACEHOLDER || '').toLowerCase() === 'true') {
         const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='768'><rect width='100%' height='100%' fill='#f7fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='#2d3748'>Placeholder (dev)\n${(userPrompt||'').slice(0,80)}</text></svg>`;
         const base64 = Buffer.from(svg).toString('base64');
+        log('debug', 'dev.placeholder.returned');
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ imageBase64: base64, imageMime: 'image/svg+xml' }));
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({ imageBase64: base64, imageMime: 'image/svg+xml', rid }));
         return;
       }
       const upstreamMsg = result?.error?.message || result?.message || result?.text || statusText;
       const upstreamCode = result?.error?.status || result?.error?.code || undefined;
+      log('error', 'upstream.error', { status, statusText, upstreamCode, upstreamMsg });
       res.statusCode = 502;
       res.end(JSON.stringify({
         error: 'Upstream image API error',
@@ -118,33 +157,59 @@ module.exports = async (req, res) => {
         code: upstreamCode,
         status,
         statusText,
-        raw: result
+        raw: result,
+        rid
       }));
       return;
     }
 
     // Robust parse for different response shapes
-    const imageBase64 =
+    let imageBase64 =
       result?.images?.[0]?.image?.bytesBase64Encoded ||
       result?.images?.[0]?.b64Data ||
-      result?.predictions?.[0]?.bytesBase64Encoded;
-  if (!imageBase64) {
+      result?.predictions?.[0]?.bytesBase64Encoded ||
+      result?.image?.base64 ||
+      result?.generatedImages?.[0]?.bytesBase64Encoded;
+
+    // Also support inlineData style responses (rare)
+    if (!imageBase64) {
+      try {
+        const parts = result?.candidates?.[0]?.content?.parts || [];
+        const inline = Array.isArray(parts) && parts.find(p => p?.inline_data || p?.inlineData);
+        const inlineData = inline?.inline_data || inline?.inlineData;
+        if (inlineData?.data) imageBase64 = inlineData.data;
+      } catch {}
+    }
+
+    if (!imageBase64) {
       // Try broader keys some SDKs may use
-      const altBase64 = result?.image?.base64 || result?.generatedImages?.[0]?.bytesBase64Encoded;
+      const altBase64 = result?.image?.data || result?.data;
       if (altBase64) {
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ imageBase64: altBase64 }));
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({ imageBase64: altBase64, rid }));
         return;
       }
+      log('error', 'no.image.in.response');
       res.statusCode = 502;
-      res.end(JSON.stringify({ error: 'No image generated', raw: result }));
+      res.end(JSON.stringify({ error: 'No image generated', raw: result, rid }));
       return;
     }
 
+    // Try to capture mime if provided by upstream
+    const imageMime =
+      result?.images?.[0]?.image?.mimeType ||
+      result?.images?.[0]?.mimeType ||
+      result?.mimeType ||
+      result?.images?.[0]?.image?.mime ||
+      undefined;
+    log('debug', 'success.image.generated', { bytes: imageBase64.length, hasMime: Boolean(imageMime) });
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ imageBase64 }));
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(JSON.stringify({ imageBase64, ...(imageMime ? { imageMime } : {}), rid }));
   } catch (err) {
+    log('error', 'handler.exception', { err: String(err?.message || err) });
     res.statusCode = 500;
-    res.end(JSON.stringify({ error: 'Server error', message: String(err?.message || err) }));
+    res.end(JSON.stringify({ error: 'Server error', message: String(err?.message || err), rid }));
   }
 };
