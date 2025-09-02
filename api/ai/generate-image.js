@@ -71,7 +71,8 @@ module.exports = async (req, res) => {
     const fullPrompt = `${stylePart}: ${userPrompt}`;
 
     // Google AI Studio - Images API (Imagen 3)
-  const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0';
+  // Default to the user's suggested Gemini Images model; can be overridden via env
+  const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0-generate-002';
   const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
   const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
   const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
