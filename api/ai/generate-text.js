@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
     };
     if (systemPrompt) {
       payload.systemInstruction = { parts: [{ text: systemPrompt }] };

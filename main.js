@@ -324,7 +324,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 textarea.value += (currentText.length > 0 ? ' ' : '') + generatedText.trim();
                 saveData();
             } else {
-                throw new Error('No se recibió texto válido.');
+                // No texto: mostrar pista y no lanzar excepción
+                const rid = result?.rid ? ` [rid: ${result.rid}]` : '';
+                const detail = result?.message || result?.error || 'No se recibió texto válido';
+                const holder = textarea?.closest('.writing-page')?.querySelector('.writing-challenge');
+                if (holder) holder.textContent = `AI: ${detail}${rid}`;
+                console.debug('AI text generation: empty text result', result);
+                return;
             }
         } catch (error) {
             console.error('Error generando texto:', error);
