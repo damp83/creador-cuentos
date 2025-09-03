@@ -304,13 +304,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const userQuery = `Continúa este cuento infantil sobre ${protagonistName}. El texto actual es: "${currentText}"`;
 
         try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: userQuery, systemPrompt, model: 'gemini-1.5-flash' })
-                });
-                const result = await response.json();
-                const generatedText = result?.text;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: userQuery, systemPrompt, model: 'gemini-1.5-flash' })
+            });
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (e) {
+                // respuesta no JSON
+            }
+            if (!response.ok) {
+                const msg = result?.error || result?.message || `HTTP ${response.status}`;
+                throw new Error(msg);
+            }
+            const generatedText = result?.text;
             if (generatedText && textarea) {
                 textarea.value += (currentText.length > 0 ? ' ' : '') + generatedText.trim();
                 saveData();
@@ -319,6 +328,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error generando texto:', error);
+            // Hint visible mínimo cerca del editor
+            const holder = textarea?.closest('.writing-page')?.querySelector('.writing-challenge');
+            if (holder) holder.textContent = `AI: ${String(error?.message || error)}`;
         } finally {
             if (button) {
                 button.innerHTML = '<i data-lucide="lightbulb"></i>';
