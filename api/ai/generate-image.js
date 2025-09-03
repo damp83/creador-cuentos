@@ -37,6 +37,39 @@ async function callGoogleImages(apiUrl, payload, apiKey, useHeader = true) {
   return { ok: fetchRes.ok, status: fetchRes.status, statusText: fetchRes.statusText, result };
 }
 
+async function callHuggingFaceImage(model, prompt, dims, hfKey, log) {
+  const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`;
+  const steps = parseInt(process.env.HF_STEPS || '28', 10);
+  const guidance = parseFloat(process.env.HF_GUIDANCE || '7');
+  const payload = {
+    inputs: prompt,
+    parameters: {
+      ...(dims?.width && dims?.height ? { width: dims.width, height: dims.height } : {}),
+      num_inference_steps: steps,
+      guidance_scale: guidance,
+    }
+  };
+  const headers = {
+    Authorization: `Bearer ${hfKey}`,
+    'Content-Type': 'application/json',
+    'x-wait-for-model': 'true',
+    'x-use-cache': 'false',
+  };
+  const resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const mime = resp.headers.get('content-type') || '';
+  if (!resp.ok) {
+    let errJson = null; let errText = '';
+    try { errJson = await resp.json(); } catch { errText = await resp.text().catch(() => ''); }
+    log('debug', 'hf.call.failed', { status: resp.status, statusText: resp.statusText, mime });
+    return { ok: false, status: resp.status, statusText: resp.statusText, result: errJson || { text: errText } };
+  }
+  // Expect binary image bytes
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const imageMime = mime && mime.startsWith('image/') ? mime : 'image/png';
+  const b64 = buf.toString('base64');
+  return { ok: true, status: resp.status, statusText: resp.statusText, result: { imageBase64: b64, imageMime: imageMime } };
+}
+
 module.exports = async (req, res) => {
   const debug = String(process.env.IMAGE_DEBUG || '').toLowerCase() === 'true';
   const rid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -63,12 +96,7 @@ module.exports = async (req, res) => {
     const type = body.type || 'scenario';
     const userPrompt = body.prompt || '';
 
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
-    if (!apiKey) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)', rid }));
-      return;
-    }
+    const provider = String(process.env.IMAGE_PROVIDER || 'google').toLowerCase();
 
   const stylePart =
       type === 'character'
@@ -77,62 +105,89 @@ module.exports = async (req, res) => {
 
     const fullPrompt = `${stylePart}: ${userPrompt}`;
 
-    // Google AI Studio - Images API (Imagen 3)
-  // Default to the user's suggested Gemini Images model; can be overridden via env
-  const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0-generate-002';
-  const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
-  const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
-  const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
-
-    const payload = {
-      model,
-      prompt: { text: fullPrompt },
-      ...(aspect ? { aspectRatio: aspect } : {})
-    };
-    log('debug', 'request.received', {
-      type,
-      model,
-      aspect: aspect || null,
-      promptChars: fullPrompt.length,
-    });
-    // Try primary endpoint
-    let { ok, status, statusText, result } = await callGoogleImages(primaryUrl, payload, apiKey, true);
-    if (!ok) {
-      const upstreamMsg1 = result?.error?.message || result?.message || result?.text || statusText;
-      log('debug', 'call.primary.failed', { status, statusText, upstreamMsg: upstreamMsg1 });
+    // Provider routing
+    let ok = false, status = 0, statusText = '', result = null;
+    if (provider === 'huggingface' || provider === 'hf') {
+      const hfKey = process.env.HUGGINGFACE_API_KEY;
+      if (!hfKey) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'Missing HUGGINGFACE_API_KEY', rid }));
+        return;
+      }
+      // Rough aspect parsing to dims
+      const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // reuse existing env e.g., '1:1', '16:9'
+      const toDims = (ar) => {
+        if (!ar) return { width: 1024, height: 1024 };
+        const m = String(ar).split(':').map(n => parseInt(n, 10));
+        if (m.length === 2 && m[0] > 0 && m[1] > 0) {
+          // Keep max 1024 on the longest side
+          const [a, b] = m;
+          if (a === b) return { width: 1024, height: 1024 };
+          if (a > b) return { width: 1024, height: Math.round(1024 * b / a) };
+          return { width: Math.round(1024 * a / b), height: 1024 };
+        }
+        return { width: 1024, height: 1024 };
+      };
+      const dims = toDims(aspect);
+      const hfModel = process.env.HF_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0';
+      log('debug', 'request.received', { type, model: hfModel, aspect: aspect || null, dims, promptChars: fullPrompt.length, provider: 'huggingface' });
+      const hfRes = await callHuggingFaceImage(hfModel, fullPrompt, dims, hfKey, log);
+      ok = hfRes.ok; status = hfRes.status; statusText = hfRes.statusText; result = hfRes.result;
     } else {
-      log('debug', 'call.primary.ok', { status });
-    }
-    // If primary fails, try alternate endpoint signature
-    if (!ok) {
-      const alt = await callGoogleImages(altUrl, payload, apiKey, true);
-      ok = alt.ok; status = alt.status; statusText = alt.statusText; result = alt.result;
-      if (!ok) {
-        const upstreamMsg2 = result?.error?.message || result?.message || result?.text || statusText;
-        log('debug', 'call.alt.failed', { status, statusText, upstreamMsg: upstreamMsg2 });
-      } else {
-        log('debug', 'call.alt.ok', { status });
+      // Google AI Studio - Images API (Imagen 3)
+      const googleKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
+      if (!googleKey) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)', rid }));
+        return;
       }
-    }
-    // If header auth fails, try query key as last resort
-    if (!ok) {
-      const sep1 = primaryUrl.includes('?') ? '&' : '?';
-      const sep2 = altUrl.includes('?') ? '&' : '?';
-      const p2 = await callGoogleImages(`${primaryUrl}${sep1}key=${apiKey}`, payload, apiKey, false);
-      ok = p2.ok; status = p2.status; statusText = p2.statusText; result = p2.result;
+      // Default Gemini Images model; can be overridden via env
+      const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0-generate-002';
+      const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
+      const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
+      const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
+      const payload = { model, prompt: { text: fullPrompt }, ...(aspect ? { aspectRatio: aspect } : {}) };
+      log('debug', 'request.received', { type, model, aspect: aspect || null, promptChars: fullPrompt.length, provider: 'google' });
+      // Try primary endpoint
+      let g1 = await callGoogleImages(primaryUrl, payload, googleKey, true);
+      ok = g1.ok; status = g1.status; statusText = g1.statusText; result = g1.result;
       if (!ok) {
-        log('debug', 'call.primaryQueryKey.failed', { status, statusText });
+        const upstreamMsg1 = result?.error?.message || result?.message || result?.text || statusText;
+        log('debug', 'call.primary.failed', { status, statusText, upstreamMsg: upstreamMsg1 });
       } else {
-        log('debug', 'call.primaryQueryKey.ok', { status });
+        log('debug', 'call.primary.ok', { status });
       }
+      // If primary fails, try alternate endpoint signature
       if (!ok) {
-        const a2 = await callGoogleImages(`${altUrl}${sep2}key=${apiKey}`, payload, apiKey, false);
-        ok = a2.ok; status = a2.status; statusText = a2.statusText; result = a2.result;
+        const alt = await callGoogleImages(altUrl, payload, googleKey, true);
+        ok = alt.ok; status = alt.status; statusText = alt.statusText; result = alt.result;
         if (!ok) {
-          const upstreamMsg4 = result?.error?.message || result?.message || result?.text || statusText;
-          log('debug', 'call.altQueryKey.failed', { status, statusText, upstreamMsg: upstreamMsg4 });
+          const upstreamMsg2 = result?.error?.message || result?.message || result?.text || statusText;
+          log('debug', 'call.alt.failed', { status, statusText, upstreamMsg: upstreamMsg2 });
         } else {
-          log('debug', 'call.altQueryKey.ok', { status });
+          log('debug', 'call.alt.ok', { status });
+        }
+      }
+      // If header auth fails, try query key as last resort
+      if (!ok) {
+        const sep1 = primaryUrl.includes('?') ? '&' : '?';
+        const sep2 = altUrl.includes('?') ? '&' : '?';
+        const p2 = await callGoogleImages(`${primaryUrl}${sep1}key=${googleKey}`, payload, googleKey, false);
+        ok = p2.ok; status = p2.status; statusText = p2.statusText; result = p2.result;
+        if (!ok) {
+          log('debug', 'call.primaryQueryKey.failed', { status, statusText });
+        } else {
+          log('debug', 'call.primaryQueryKey.ok', { status });
+        }
+        if (!ok) {
+          const a2 = await callGoogleImages(`${altUrl}${sep2}key=${googleKey}`, payload, googleKey, false);
+          ok = a2.ok; status = a2.status; statusText = a2.statusText; result = a2.result;
+          if (!ok) {
+            const upstreamMsg4 = result?.error?.message || result?.message || result?.text || statusText;
+            log('debug', 'call.altQueryKey.failed', { status, statusText, upstreamMsg: upstreamMsg4 });
+          } else {
+            log('debug', 'call.altQueryKey.ok', { status });
+          }
         }
       }
     }
@@ -179,7 +234,7 @@ module.exports = async (req, res) => {
     }
 
     // Robust parse for different response shapes
-    let imageBase64 =
+    let imageBase64 = result?.imageBase64 ||
       result?.images?.[0]?.image?.bytesBase64Encoded ||
       result?.images?.[0]?.b64Data ||
       result?.predictions?.[0]?.bytesBase64Encoded ||
@@ -212,7 +267,7 @@ module.exports = async (req, res) => {
     }
 
     // Try to capture mime if provided by upstream
-    const imageMime =
+    const imageMime = result?.imageMime ||
       result?.images?.[0]?.image?.mimeType ||
       result?.images?.[0]?.mimeType ||
       result?.mimeType ||

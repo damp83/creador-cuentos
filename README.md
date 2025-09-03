@@ -8,20 +8,23 @@ Separación en HTML/CSS/JS y funciones de IA vía Vercel.
 - `main.js` – lógica de la app (front-end)
 - `api/ai/generate-text.js` – función serverless para texto (Gemini)
 - `api/ai/generate-image.js` – función serverless para imágenes (Imagen 3)
+   - Ahora con soporte alternativo a Hugging Face (Stable Diffusion XL)
 
 ## Configuración en Vercel
 1. Crea el proyecto en Vercel y sube este directorio.
 2. En Variables de Entorno, añade:
     - `GOOGLE_API_KEY` – clave de Google AI Studio/Vertex AI (con acceso a Gemini/Imagen).
        - Alternativamente: `Geminis_Api_key` o `GEMINIS_API_KEY` (se aceptan como alias del API key).
-   - Opcional: `GOOGLE_IMAGE_MODEL` (por defecto `imagen-3.0-generate-002`).
+    - Opcional: `GOOGLE_IMAGE_MODEL` (por defecto `imagen-3.0-generate-002`).
    - Opcional: `GOOGLE_IMAGE_AR` (ej. `1:1`, `16:9`).
    - Opcional: `IMAGE_DEV_PLACEHOLDER` = `true` para devolver un placeholder SVG si la API de imágenes falla (solo útil para pruebas).
    - Opcional: `IMAGE_DEBUG` = `true` para añadir logs estructurados y un `rid` (request id) en respuestas y logs.
-    - Opcional (proveedor alternativo OpenAI):
-       - `IMAGE_PROVIDER` = `openai`
-       - `OPENAI_API_KEY` (o `CHATGPT_API_KEY`/`ChatGPT_API_KEY`)
-       - `OPENAI_IMAGE_MODEL` (por defecto `gpt-image-1`)
+    - Opcional: `IMAGE_PROVIDER` = `google` (por defecto) o `huggingface`.
+    - Si usas Hugging Face:
+       - `HUGGINGFACE_API_KEY` – tu token de HF (Bearer).
+       - `HF_MODEL` – por defecto `stabilityai/stable-diffusion-xl-base-1.0`.
+       - `HF_STEPS` – pasos de inferencia (por defecto 28).
+       - `HF_GUIDANCE` – guidance scale (por defecto 7).
 3. Despliega. Las funciones estarán disponibles en `/api/ai/generate-text` y `/api/ai/generate-image`.
 
 ## Despliegue con GitHub + Vercel
@@ -99,10 +102,9 @@ Si el problema persiste, mira la respuesta detallada en la consola (hemos mejora
    - Define `IMAGE_DEBUG=true` y vuelve a desplegar.
    - Cada respuesta incluirá `rid` y en los logs de Vercel verás entradas JSON con ese mismo `rid` (campos como `call.primary.failed`, `upstream.error`). Úsalo para correlacionar y ver el `status/statusText` y mensaje real del proveedor.
 
-6) Probar con OpenAI (ChatGPT) como proveedor de imágenes
-   - En Vercel define: `IMAGE_PROVIDER=openai` y `OPENAI_API_KEY`.
-   - Opcional: `OPENAI_IMAGE_MODEL=gpt-image-1`.
-   - El tamaño se mapea automáticamente desde `GOOGLE_IMAGE_AR` si lo defines: `1:1→1024x1024`, `16:9→1344x768`, `9:16→768x1344`, `4:3→1024x768`, `3:2→1200x800`.
+6) Cambiar de proveedor a Hugging Face (Stable Diffusion XL)
+   - Variables: `IMAGE_PROVIDER=huggingface`, `HUGGINGFACE_API_KEY=<tu_token>`, opcional `HF_MODEL`.
+   - Soportamos AR aproximado vía `GOOGLE_IMAGE_AR` (convertido a dimensiones máximas ~1024px por lado).
 
 ## GitHub Pages (UI) + Vercel (APIs)
 Si sirves la interfaz en GitHub Pages y las funciones en Vercel, debes apuntar el front a la URL de Vercel:
