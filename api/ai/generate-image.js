@@ -37,16 +37,21 @@ async function callGoogleImages(apiUrl, payload, apiKey, useHeader = true) {
   return { ok: fetchRes.ok, status: fetchRes.status, statusText: fetchRes.statusText, result };
 }
 
-async function callHuggingFaceImage(model, prompt, dims, hfKey, log) {
+async function callHuggingFaceImage(model, prompt, dims, hfKey, log, opts = {}) {
   const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`;
   const steps = parseInt(process.env.HF_STEPS || '28', 10);
   const guidance = parseFloat(process.env.HF_GUIDANCE || '7');
+  const seed = Number.isFinite(+process.env.HF_SEED) ? parseInt(process.env.HF_SEED, 10) : undefined;
+  const negativeEnv = process.env.HF_NEGATIVE_PROMPT || '';
+  const negative = (opts.negative || negativeEnv || '').trim();
   const payload = {
     inputs: prompt,
     parameters: {
       ...(dims?.width && dims?.height ? { width: dims.width, height: dims.height } : {}),
       num_inference_steps: steps,
       guidance_scale: guidance,
+      ...(negative ? { negative_prompt: negative } : {}),
+      ...(seed !== undefined ? { seed } : {}),
     }
   };
   const headers = {
@@ -68,6 +73,49 @@ async function callHuggingFaceImage(model, prompt, dims, hfKey, log) {
   const imageMime = mime && mime.startsWith('image/') ? mime : 'image/png';
   const b64 = buf.toString('base64');
   return { ok: true, status: resp.status, statusText: resp.statusText, result: { imageBase64: b64, imageMime: imageMime } };
+}
+
+function buildPrompts(type, userPrompt) {
+  const baseStyle = [
+    'children\'s book illustration',
+    'colorful, friendly, clean composition',
+    'soft lighting, vivid but harmonious colors',
+    'high quality, detailed, coherent anatomy',
+    'no text, no watermark'
+  ];
+  let intent = '';
+  if (type === 'character') {
+    intent = [
+      'single character, full body, centered, plain background',
+      'child-friendly proportions, expressive face, looking at camera',
+      'simple white background'
+    ].join(', ');
+  } else if (type === 'cover') {
+    intent = [
+      'book cover composition without text',
+      'central subject, clear silhouette, high contrast',
+      'room for title (but do not render any text)'
+    ].join(', ');
+  } else {
+    // scenario / scene
+    intent = [
+      'wide scene, environment-focused',
+      'consistent perspective and depth',
+      'balanced, readable layout'
+    ].join(', ');
+  }
+  const engineered = [
+    `Subject: ${userPrompt}`,
+    `Style: ${baseStyle.join(', ')}`,
+    `Rendering: ${intent}`,
+  ].join('\n');
+  const negative = [
+    'lowres, blurry, noisy, jpeg artifacts',
+    'text, captions, letters, logo, watermark, signature',
+    'duplicate subjects, extra limbs, extra fingers, deformed, disfigured, mutated',
+    'nsfw, gore, scary'
+  ].join(', ');
+  return { prompt: engineered, negative };
 }
 
 module.exports = async (req, res) => {
@@ -96,14 +144,9 @@ module.exports = async (req, res) => {
     const type = body.type || 'scenario';
     const userPrompt = body.prompt || '';
 
-    const provider = String(process.env.IMAGE_PROVIDER || 'google').toLowerCase();
+  const provider = String(process.env.IMAGE_PROVIDER || 'google').toLowerCase();
 
-  const stylePart =
-      type === 'character'
-        ? 'ilustración para un cuento infantil, estilo dibujo animado, colores vivos, cuerpo completo, sin texto, fondo blanco'
-        : 'ilustración para un cuento infantil, estilo dibujo animado, colores vivos, paisaje fantástico, sin texto';
-
-    const fullPrompt = `${stylePart}: ${userPrompt}`;
+  const { prompt: fullPrompt, negative } = buildPrompts(type, userPrompt);
 
     // Provider routing
     let ok = false, status = 0, statusText = '', result = null;
@@ -131,7 +174,7 @@ module.exports = async (req, res) => {
       const dims = toDims(aspect);
       const hfModel = process.env.HF_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0';
       log('debug', 'request.received', { type, model: hfModel, aspect: aspect || null, dims, promptChars: fullPrompt.length, provider: 'huggingface' });
-      const hfRes = await callHuggingFaceImage(hfModel, fullPrompt, dims, hfKey, log);
+  const hfRes = await callHuggingFaceImage(hfModel, fullPrompt, dims, hfKey, log, { negative });
       ok = hfRes.ok; status = hfRes.status; statusText = hfRes.statusText; result = hfRes.result;
     } else {
       // Google AI Studio - Images API (Imagen 3)
