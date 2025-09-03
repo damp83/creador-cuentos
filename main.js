@@ -317,8 +317,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // respuesta no JSON
             }
             if (!response.ok) {
-                const msg = result?.error || result?.message || `HTTP ${response.status}`;
-                throw new Error(msg);
+                const rid = result?.rid ? ` [rid: ${result.rid}]` : '';
+                const detail = result?.message || result?.error || `HTTP ${response.status}`;
+                const holder = textarea?.closest('.writing-page')?.querySelector('.writing-challenge');
+                if (holder) holder.textContent = `AI: ${detail}${rid}`;
+                console.debug('AI text generation: non-OK response', result);
+                return;
             }
             const generatedText = result?.text;
             if (generatedText) {
