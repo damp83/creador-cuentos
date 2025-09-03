@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedState) appState = JSON.parse(savedState);
     };
 
-    const generateImage = async (prompt, type) => {
+    const generateImage = async (prompt, type, opts = {}) => {
         // Limpia el último error antes de solicitar
         appState.lastImageError = '';
         if (crossOriginRequired) {
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${apiBase || ''}/api/ai/generate-image`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, type })
+                body: JSON.stringify({ prompt, type, ...(Number.isFinite(+opts.hfSeed) ? { hfSeed: parseInt(opts.hfSeed, 10) } : {}) })
             });
             let result = null;
             try {
@@ -133,6 +133,21 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error generando imagen:', error);
             return null;
         }
+    };
+
+    // Construye un resumen compacto del diseño visual del personaje para reusar en escenas
+    const buildDesignSummary = (d = {}) => {
+        const parts = [];
+        if (d.species) parts.push(d.species);
+        if (d.age) parts.push(d.age);
+        if (d.hair) parts.push(`pelo ${d.hair}`);
+        if (d.eyes) parts.push(`ojos ${d.eyes}`);
+        if (d.skin) parts.push(`piel/pelaje ${d.skin}`);
+        if (d.clothing) parts.push(`ropa ${d.clothing}`);
+        if (d.accessories) parts.push(`accesorios ${d.accessories}`);
+        if (d.feature) parts.push(`rasgo ${d.feature}`);
+        if (d.visualStyle) parts.push(`estilo ${d.visualStyle}`);
+        return parts.join(', ');
     };
 
     const handleAIGenerationSubmit = async () => {
@@ -166,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avatarPreview = document.getElementById('avatar-preview');
         if (avatarPreview) avatarPreview.innerHTML = '<div class="loader"></div>';
 
-        const imageUrl = await generateImage(prompt, 'character');
+    const imageUrl = await generateImage(prompt, 'character');
 
         if (generateAiAvatarBtn) {
             generateAiAvatarBtn.innerHTML = 'Crear Personaje';
@@ -179,6 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Guardar imagen IA y detalles desde el modal
                 char.avatar.aiAvatarUrl = imageUrl;
                 char.avatar.builderMode = 'ai';
+                // Guarda el prompt y un resumen del diseño para reutilizarlo al ilustrar escenas
+                char.avatar.aiPromptUsed = prompt;
                 char.details = {
                     ...(char.details || {}),
                     species: type || '',
@@ -191,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     feature: feature || '',
                     visualStyle: visualStyle || ''
                 };
+                char.avatar.designSummary = buildDesignSummary(char.details);
                 renderAvatar();
                 saveState();
             }
@@ -287,14 +305,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const parts = selectedChars.map((c) => {
                 const d = c.details || {};
                 const role = (c.type || 'personaje');
-                const name = c.name ? `${c.name}, ` : '';
-                const species = d.species || '';
-                const personality = d.personality ? `, ${d.personality}` : '';
-                return `${name}${role} (${species}${personality})`;
+                const name = c.name ? c.name : 'personaje';
+                const design = c?.avatar?.designSummary || buildDesignSummary(d);
+                const style = d.visualStyle ? `; estilo ${d.visualStyle}` : '';
+                return `${name} (${role}) — apariencia: ${design}${style}`;
             });
-            charSnippet = ` Personajes: ${parts.join('; ')}.`;
+            charSnippet = ` Mantén la coherencia exacta del diseño de los personajes ya creados. Personajes en la escena: ${parts.join(' | ')}. No cambies colores de pelo/ojos/ropa ni rasgos.`;
         }
-        const prompt = `${promptBase}${charSnippet}`.trim();
+    const prompt = `${promptBase}${charSnippet}`.trim();
         if (!currentPageToIllustrate || !prompt) {
             aiSceneModal?.classList.remove('visible');
             return;
@@ -311,7 +329,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (preview) preview.innerHTML = '<div class="loader"></div>';
 
-    const imageUrl = await generateImage(prompt, 'scenario');
+        // Deriva una semilla estable a partir de los personajes seleccionados para mantener consistencia visual
+        const seedFromChars = (() => {
+            if (!selectedChars.length) return undefined;
+            const key = selectedChars.map((c) => `${c.type}:${c.name || ''}:${c?.avatar?.designSummary || ''}`).join('|');
+            let hash = 0;
+            for (let i = 0; i < key.length; i++) {
+                hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+            }
+            // Limitar a rango razonable
+            return hash % 1000000000;
+        })();
+        const imageUrl = await generateImage(prompt, 'scenario', { hfSeed: seedFromChars });
         if (imageUrl) {
             if (typeof currentPageToIllustrate === 'string') {
                 const sectionKey = currentPageToIllustrate;

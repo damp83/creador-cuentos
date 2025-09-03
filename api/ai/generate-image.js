@@ -41,9 +41,10 @@ async function callHuggingFaceImage(model, prompt, dims, hfKey, log, opts = {}) 
   const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`;
   const steps = parseInt(process.env.HF_STEPS || '28', 10);
   const guidance = parseFloat(process.env.HF_GUIDANCE || '7');
-  const seed = Number.isFinite(+process.env.HF_SEED) ? parseInt(process.env.HF_SEED, 10) : undefined;
+  const envSeed = Number.isFinite(+process.env.HF_SEED) ? parseInt(process.env.HF_SEED, 10) : undefined;
   const negativeEnv = process.env.HF_NEGATIVE_PROMPT || '';
   const negative = (opts.negative || negativeEnv || '').trim();
+  const seed = Number.isFinite(+opts.seed) ? parseInt(opts.seed, 10) : envSeed;
   const payload = {
     inputs: prompt,
     parameters: {
@@ -143,6 +144,7 @@ module.exports = async (req, res) => {
     const body = await parseJsonBody(req);
     const type = body.type || 'scenario';
     const userPrompt = body.prompt || '';
+  const hfSeed = Number.isFinite(+body.hfSeed) ? parseInt(body.hfSeed, 10) : undefined;
 
   const provider = String(process.env.IMAGE_PROVIDER || 'google').toLowerCase();
 
@@ -174,7 +176,7 @@ module.exports = async (req, res) => {
       const dims = toDims(aspect);
       const hfModel = process.env.HF_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0';
       log('debug', 'request.received', { type, model: hfModel, aspect: aspect || null, dims, promptChars: fullPrompt.length, provider: 'huggingface' });
-  const hfRes = await callHuggingFaceImage(hfModel, fullPrompt, dims, hfKey, log, { negative });
+  const hfRes = await callHuggingFaceImage(hfModel, fullPrompt, dims, hfKey, log, { negative, seed: hfSeed });
       ok = hfRes.ok; status = hfRes.status; statusText = hfRes.statusText; result = hfRes.result;
     } else {
       // Google AI Studio - Images API (Imagen 3)
