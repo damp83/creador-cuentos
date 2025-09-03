@@ -37,33 +37,6 @@ async function callGoogleImages(apiUrl, payload, apiKey, useHeader = true) {
   return { ok: fetchRes.ok, status: fetchRes.status, statusText: fetchRes.statusText, result };
 }
 
-async function callOpenAIImages(model, prompt, size, apiKey) {
-  const apiUrl = 'https://api.openai.com/v1/images/generations';
-  const fetchRes = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({ model, prompt, size })
-  });
-  let result = null;
-  try {
-    result = await fetchRes.json();
-  } catch (e) {
-    const txt = await fetchRes.text().catch(() => '');
-    result = { nonJson: true, status: fetchRes.status, text: txt };
-  }
-  return { ok: fetchRes.ok, status: fetchRes.status, statusText: fetchRes.statusText, result };
-}
-
-async function fetchUrlAsBase64(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Failed to fetch image URL: HTTP ${r.status}`);
-  const ab = await r.arrayBuffer();
-  return Buffer.from(ab).toString('base64');
-}
-
 module.exports = async (req, res) => {
   const debug = String(process.env.IMAGE_DEBUG || '').toLowerCase() === 'true';
   const rid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -90,7 +63,12 @@ module.exports = async (req, res) => {
     const type = body.type || 'scenario';
     const userPrompt = body.prompt || '';
 
-  const provider = String(process.env.IMAGE_PROVIDER || 'google').toLowerCase();
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
+    if (!apiKey) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)', rid }));
+      return;
+    }
 
   const stylePart =
       type === 'character'
@@ -99,95 +77,12 @@ module.exports = async (req, res) => {
 
     const fullPrompt = `${stylePart}: ${userPrompt}`;
 
-    const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
-
-    // Provider: OpenAI (ChatGPT) images
-    if (provider === 'openai') {
-      const sizeFromAspect = (ar) => {
-        switch ((ar || '').trim()) {
-          case '16:9': return '1344x768';
-          case '4:3': return '1024x768';
-          case '3:2': return '1200x800';
-          case '9:16': return '768x1344';
-          default: return '1024x1024';
-        }
-      };
-      const oaKey = process.env.OPENAI_API_KEY || process.env.ChatGPT_API_KEY || process.env.CHATGPT_API_KEY;
-      if (!oaKey) {
-        res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'Missing OPENAI_API_KEY (o CHATGPT_API_KEY)', rid }));
-        return;
-      }
-      const rawModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
-      const allowedModels = new Set(['gpt-image-1', 'gpt-image-0721-mini-alpha', 'dall-e-3', 'dall-e-2']);
-      const oaModel = allowedModels.has(String(rawModel)) ? String(rawModel) : 'gpt-image-1';
-      if (oaModel !== rawModel) {
-        log('debug', 'openai.model.invalid.fallback', { provided: rawModel, using: oaModel });
-      }
-      log('debug', 'provider.openai.request', { size: sizeFromAspect(aspect), model: oaModel });
-      const { ok, status, statusText, result } = await callOpenAIImages(oaModel, fullPrompt, sizeFromAspect(aspect), oaKey);
-      if (!ok) {
-        // Dev placeholder
-        if (String(process.env.IMAGE_DEV_PLACEHOLDER || '').toLowerCase() === 'true') {
-          const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='768'><rect width='100%' height='100%' fill='#f7fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='#2d3748'>Placeholder (dev)\n${(userPrompt||'').slice(0,80)}</text></svg>`;
-          const base64 = Buffer.from(svg).toString('base64');
-          log('debug', 'dev.placeholder.returned');
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Cache-Control', 'no-store');
-          res.end(JSON.stringify({ imageBase64: base64, imageMime: 'image/svg+xml', rid }));
-          return;
-        }
-        const upstreamMsg = result?.error?.message || result?.message || result?.text || statusText;
-        const upstreamCode = result?.error?.type || result?.error?.code || undefined;
-        const friendlyModelMsg = (status === 400 && /Invalid value/i.test(String(upstreamMsg || '')))
-          ? 'Modelo de OpenAI inválido en OPENAI_IMAGE_MODEL. Usa uno de: gpt-image-1, gpt-image-0721-mini-alpha, dall-e-3 o dall-e-2.'
-          : null;
-        log('error', 'openai.upstream.error', { status, statusText, upstreamCode, upstreamMsg });
-        res.statusCode = 502;
-        res.end(JSON.stringify({
-          error: 'Upstream image API error (OpenAI)',
-          message: friendlyModelMsg || upstreamMsg,
-          code: upstreamCode,
-          status,
-          statusText,
-          raw: result,
-          rid
-        }));
-        return;
-      }
-      let b64 = result?.data?.[0]?.b64_json;
-      if (!b64) {
-        const url = result?.data?.[0]?.url;
-        if (url) {
-          try {
-            b64 = await fetchUrlAsBase64(url);
-          } catch (e) {
-            log('error', 'openai.fetch.url.failed', { err: String(e?.message || e) });
-          }
-        }
-      }
-      if (!b64) {
-        log('error', 'openai.no.image.in.response');
-        res.statusCode = 502;
-        res.end(JSON.stringify({ error: 'No image generated', raw: result, rid }));
-        return;
-      }
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-store');
-      res.end(JSON.stringify({ imageBase64: b64, imageMime: 'image/png', rid }));
-      return;
-    }
-
-    // Default provider: Google AI Studio - Images API (Imagen 3)
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.Geminis_Api_key || process.env.GEMINIS_API_KEY;
-    if (!apiKey) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Missing GOOGLE_API_KEY (o Geminis_Api_key)', rid }));
-      return;
-    }
-    const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0-generate-002';
-    const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
-    const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
+    // Google AI Studio - Images API (Imagen 3)
+  // Default to the user's suggested Gemini Images model; can be overridden via env
+  const model = process.env.GOOGLE_IMAGE_MODEL || 'imagen-3.0-generate-002';
+  const aspect = process.env.GOOGLE_IMAGE_AR || undefined; // e.g., '1:1', '16:9'
+  const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/images:generate`;
+  const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImage`;
 
     const payload = {
       model,
@@ -219,7 +114,7 @@ module.exports = async (req, res) => {
         log('debug', 'call.alt.ok', { status });
       }
     }
-  // If header auth fails, try query key as last resort
+    // If header auth fails, try query key as last resort
     if (!ok) {
       const sep1 = primaryUrl.includes('?') ? '&' : '?';
       const sep2 = altUrl.includes('?') ? '&' : '?';
