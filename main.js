@@ -289,8 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const continueStoryWithAI = async (targetId) => {
         const textarea = document.getElementById(targetId);
+        const q = quillEditors?.[targetId];
         const button = document.querySelector(`.idea-btn[data-target="${targetId}"]`);
-        const currentText = textarea?.value || '';
+        const currentText = textarea?.value || (q ? (q.getText() || '') : '');
         const protagonistName = appState.storyData.characters[0]?.name || 'el protagonista';
 
         if (button) {
@@ -320,9 +321,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(msg);
             }
             const generatedText = result?.text;
-            if (generatedText && textarea) {
-                textarea.value += (currentText.length > 0 ? ' ' : '') + generatedText.trim();
-                saveData();
+            if (generatedText) {
+                const textToAdd = (currentText.length > 0 ? ' ' : '') + generatedText.trim();
+                if (q) {
+                    const end = Math.max(0, (q.getLength() || 1) - 1);
+                    q.insertText(end, textToAdd);
+                } else if (textarea) {
+                    textarea.value += textToAdd;
+                    saveData();
+                } else {
+                    // No editor found; show hint
+                    const holder = document.querySelector('.writing-challenge');
+                    if (holder) holder.textContent = 'AI: recibido texto pero no se encontró editor para insertarlo.';
+                }
             } else {
                 // No texto: mostrar pista y no lanzar excepción
                 const rid = result?.rid ? ` [rid: ${result.rid}]` : '';
