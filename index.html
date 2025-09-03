@@ -75,49 +75,6 @@
                                     <p>Describe tu personaje y la IA lo creará automáticamente.</p>
                                     <button id="open-ai-assistant-btn" class="nav-btn" style="background-color: var(--ai-color);">Abrir Asistente de Creación IA</button>
                                 </div>
-
-                                <!-- Ficha pedagógica del personaje (única) -->
-                                <div class="character-details" id="character-details">
-                                    <h4>Ficha del Personaje</h4>
-                                    <div class="details-grid">
-                                        <div class="form-group">
-                                            <label for="char-species">Especie / Tipo</label>
-                                            <input type="text" id="char-species" placeholder="Ej: zorro, robot, mago...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-age">Edad</label>
-                                            <input type="text" id="char-age" placeholder="Ej: 7 años, adolescente, anciano...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-personality">Personalidad</label>
-                                            <input type="text" id="char-personality" placeholder="Ej: valiente, curioso, tímido...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-likes">Gustos</label>
-                                            <input type="text" id="char-likes" placeholder="Ej: chocolate, leer, explorar...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-strengths">Fortalezas</label>
-                                            <input type="text" id="char-strengths" placeholder="Ej: ingenioso, fuerte, creativo...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-weaknesses">Debilidades</label>
-                                            <input type="text" id="char-weaknesses" placeholder="Ej: impaciente, miedoso...">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="char-goal">Objetivo</label>
-                                            <input type="text" id="char-goal" placeholder="Ej: encontrar el tesoro...">
-                                        </div>
-                                        <div class="form-group" style="grid-column: 1 / -1;">
-                                            <label for="char-backstory">Historia</label>
-                                            <textarea id="char-backstory" rows="2" placeholder="Breve historia o contexto..."></textarea>
-                                        </div>
-                                        <div class="form-group" style="grid-column: 1 / -1;">
-                                            <label for="char-style">Estilo al hablar</label>
-                                            <input type="text" id="char-style" placeholder="Ej: habla en rimas, muy educado, usa muletillas...">
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -231,48 +188,36 @@
                     <input type="text" id="ai-char-type" placeholder="Ej: zorro, robot, mago..." />
                 </div>
                 <div class="form-group">
-                    <label for="ai-char-age">Edad</label>
-                    <input type="text" id="ai-char-age" placeholder="Ej: 7 años, adolescente, anciano..." />
-                </div>
-                <div class="form-group">
-                    <label for="ai-char-personality">Personalidad</label>
-                    <input type="text" id="ai-char-personality" placeholder="Ej: valiente, curioso, tímido..." />
-                </div>
-                <div class="form-group">
-                    <label for="ai-char-likes">Gustos</label>
-                    <input type="text" id="ai-char-likes" placeholder="Ej: chocolate, leer, explorar..." />
-                </div>
-                <div class="form-group">
-                    <label for="ai-char-strengths">Fortalezas</label>
-                    <input type="text" id="ai-char-strengths" placeholder="Ej: ingenioso, fuerte, creativo..." />
-                </div>
-                <div class="form-group">
-                    <label for="ai-char-weaknesses">Debilidades</label>
-                    <input type="text" id="ai-char-weaknesses" placeholder="Ej: impaciente, miedoso..." />
-                </div>
-                <div class="form-group">
-                    <label for="ai-char-goal">Objetivo</label>
-                    <input type="text" id="ai-char-goal" placeholder="Ej: encontrar el tesoro..." />
-                </div>
-                <div class="form-group modal-full-width">
-                    <label for="ai-char-backstory">Historia</label>
-                    <textarea id="ai-char-backstory" rows="2" placeholder="Breve historia o contexto..."></textarea>
-                </div>
-                <div class="form-group modal-full-width">
-                    <label for="ai-char-style">Estilo al hablar</label>
-                    <input type="text" id="ai-char-style" placeholder="Ej: habla en rimas, muy educado, usa muletillas..." />
+                    <label for="ai-char-age">Edad visual</label>
+                    <input type="text" id="ai-char-age" placeholder="Ej: niño, adolescente, adulto, anciano" />
                 </div>
                 <div class="form-group">
                     <label for="ai-char-hair">Pelo</label>
-                    <input type="text" id="ai-char-hair" placeholder="Ej: pelo corto y azul / sin pelo" />
+                    <input type="text" id="ai-char-hair" placeholder="Ej: corto y azul / sin pelo" />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-eyes">Ojos</label>
+                    <input type="text" id="ai-char-eyes" placeholder="Ej: grandes y verdes" />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-skin">Piel / Pelaje</label>
+                    <input type="text" id="ai-char-skin" placeholder="Ej: piel morena / pelaje naranja" />
                 </div>
                 <div class="form-group">
                     <label for="ai-char-clothing">Ropa</label>
-                    <input type="text" id="ai-char-clothing" placeholder="Ej: armadura brillante" />
+                    <input type="text" id="ai-char-clothing" placeholder="Ej: camiseta roja y vaqueros" />
+                </div>
+                <div class="form-group">
+                    <label for="ai-char-accessories">Accesorios</label>
+                    <input type="text" id="ai-char-accessories" placeholder="Ej: gafas redondas, mochila" />
                 </div>
                 <div class="form-group modal-full-width">
                     <label for="ai-char-feature">Rasgo especial</label>
                     <input type="text" id="ai-char-feature" placeholder="Ej: pequeñas alas de hada" />
+                </div>
+                <div class="form-group modal-full-width">
+                    <label for="ai-char-visual-style">Estilo visual</label>
+                    <input type="text" id="ai-char-visual-style" placeholder="Ej: acuarela, crayón, estilo Pixar" />
                 </div>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 20px;">

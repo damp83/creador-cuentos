@@ -137,28 +137,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleAIGenerationSubmit = async () => {
         const type = document.getElementById('ai-char-type')?.value || '';
-        const hair = document.getElementById('ai-char-hair')?.value || '';
-        const clothing = document.getElementById('ai-char-clothing')?.value || '';
-        const feature = document.getElementById('ai-char-feature')?.value || '';
         const age = document.getElementById('ai-char-age')?.value || '';
-        const personality = document.getElementById('ai-char-personality')?.value || '';
-        const likes = document.getElementById('ai-char-likes')?.value || '';
-        const strengths = document.getElementById('ai-char-strengths')?.value || '';
-        const weaknesses = document.getElementById('ai-char-weaknesses')?.value || '';
-        const goal = document.getElementById('ai-char-goal')?.value || '';
-        const backstory = document.getElementById('ai-char-backstory')?.value || '';
-        const style = document.getElementById('ai-char-style')?.value || '';
-        let prompt = `${type} con ${hair}`.trim();
-        if (age) prompt += `, ${age}`;
-        if (clothing) prompt += `, que lleva ${clothing}`;
-        if (feature) prompt += `, ${feature}`;
-        if (personality) prompt += `. Personalidad: ${personality}`;
-        if (likes) prompt += `. Le gusta: ${likes}`;
-        if (strengths) prompt += `. Fortalezas: ${strengths}`;
-        if (weaknesses) prompt += `. Retos: ${weaknesses}`;
-        if (goal) prompt += `. Objetivo: ${goal}`;
-        if (backstory) prompt += `. Contexto: ${backstory}`;
-        if (style) prompt += `. Estilo al hablar: ${style}`;
+        const hair = document.getElementById('ai-char-hair')?.value || '';
+        const eyes = document.getElementById('ai-char-eyes')?.value || '';
+        const skin = document.getElementById('ai-char-skin')?.value || '';
+        const clothing = document.getElementById('ai-char-clothing')?.value || '';
+        const accessories = document.getElementById('ai-char-accessories')?.value || '';
+        const feature = document.getElementById('ai-char-feature')?.value || '';
+        const visualStyle = document.getElementById('ai-char-visual-style')?.value || '';
+        // Concise, image-focused prompt
+        let prompt = `${type}`.trim();
+        const parts = [];
+        if (age) parts.push(age);
+        if (hair) parts.push(`pelo: ${hair}`);
+        if (eyes) parts.push(`ojos: ${eyes}`);
+        if (skin) parts.push(`piel/pelaje: ${skin}`);
+        if (clothing) parts.push(`ropa: ${clothing}`);
+        if (accessories) parts.push(`accesorios: ${accessories}`);
+        if (feature) parts.push(`rasgo: ${feature}`);
+        if (parts.length) prompt += `, ${parts.join(', ')}`;
+        if (visualStyle) prompt += `. Estilo visual: ${visualStyle}`;
 
         aiCharacterModal?.classList.remove('visible');
         if (generateAiAvatarBtn) {
@@ -181,27 +179,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Guardar imagen IA y detalles desde el modal
                 char.avatar.aiAvatarUrl = imageUrl;
                 char.avatar.builderMode = 'ai';
-                char.details = char.details || {};
-                char.details.species = type || '';
-                char.details.age = age || '';
-                char.details.personality = personality || '';
-                char.details.likes = likes || '';
-                char.details.strengths = strengths || '';
-                char.details.weaknesses = weaknesses || '';
-                char.details.goal = goal || '';
-                char.details.backstory = backstory || '';
-                char.details.style = style || '';
-                // Volcar los inputs de la ficha visible
-                const setIf = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-                setIf('char-species', char.details.species);
-                setIf('char-age', char.details.age);
-                setIf('char-personality', char.details.personality);
-                setIf('char-likes', char.details.likes);
-                setIf('char-strengths', char.details.strengths);
-                setIf('char-weaknesses', char.details.weaknesses);
-                setIf('char-goal', char.details.goal);
-                const bs2 = document.getElementById('char-backstory'); if (bs2) bs2.value = char.details.backstory || '';
-                setIf('char-style', char.details.style);
+                char.details = {
+                    ...(char.details || {}),
+                    species: type || '',
+                    age: age || '',
+                    hair: hair || '',
+                    eyes: eyes || '',
+                    skin: skin || '',
+                    clothing: clothing || '',
+                    accessories: accessories || '',
+                    feature: feature || '',
+                    visualStyle: visualStyle || ''
+                };
                 renderAvatar();
                 saveState();
             }
