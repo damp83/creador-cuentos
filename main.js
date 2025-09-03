@@ -124,6 +124,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return { section, index, pageText, scenarioDesc };
     };
 
+    const buildEndingGuidance = (section) => {
+        if (section !== 'conclusion') return '';
+        return ' Momento de desenlace con final feliz: sensación de cierre, alegría y calma. Iluminación cálida (dorada), colores suaves, sonrisas, gesto de abrazo o celebración discreta. Evita texto o letreros.';
+    };
+
     const generateImage = async (prompt, type, opts = {}) => {
         // Limpia el último error antes de solicitar
         appState.lastImageError = '';
@@ -324,10 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleAISceneSubmit = async () => {
-        const promptBase = document.getElementById('ai-scene-prompt')?.value?.trim() || '';
-        const { pageText, scenarioDesc } = getCurrentPageContext();
+    const promptBase = document.getElementById('ai-scene-prompt')?.value?.trim() || '';
+    const { pageText, scenarioDesc, section } = getCurrentPageContext();
         const textSnippet = pageText ? ` Basado en el texto de la página: "${summarize(pageText)}".` : '';
         const scenarioSnippet = scenarioDesc ? ` Escenario base: ${scenarioDesc}.` : '';
+    const endingSnippet = buildEndingGuidance(section);
         // Build character context from selected checkboxes
         const selectedIdxs = Array.from(document.querySelectorAll('#scene-characters-list input[type="checkbox"]:checked'))
             .map((el) => parseInt(el.getAttribute('data-index') || '0', 10));
@@ -347,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             charSnippet = ` Mantén la coherencia exacta del diseño de los personajes ya creados. Personajes en la escena: ${parts.join(' | ')}. No cambies colores de pelo/ojos/ropa ni rasgos.`;
         }
     const core = promptBase || (pageText ? `Ilustra esta escena: ${summarize(pageText)}` : 'Ilustra esta escena del cuento.');
-    const prompt = `${core}${scenarioSnippet}${textSnippet}${charSnippet}`.trim();
+    const prompt = `${core}${scenarioSnippet}${textSnippet}${endingSnippet}${charSnippet}`.trim();
         if (!currentPageToIllustrate || !prompt) {
             aiSceneModal?.classList.remove('visible');
             return;
