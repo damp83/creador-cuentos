@@ -93,6 +93,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedState) appState = JSON.parse(savedState);
     };
 
+    // Utilidades para extraer texto limpio y resumir
+    const stripHtml = (html = '') => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const text = tmp.textContent || tmp.innerText || '';
+        return text.replace(/\s+/g, ' ').trim();
+    };
+    const summarize = (txt = '', maxLen = 240) => {
+        if (!txt) return '';
+        const t = txt.trim();
+        if (t.length <= maxLen) return t;
+        return t.slice(0, maxLen).replace(/[,;\s]+\S*$/, '').trim() + '…';
+    };
+    const getCurrentPageContext = () => {
+        if (!currentPageToIllustrate) return { section: null, index: null, pageText: '', scenarioDesc: '' };
+        let section = null, index = 0;
+        if (typeof currentPageToIllustrate === 'string') {
+            section = currentPageToIllustrate;
+            index = 0;
+        } else if (typeof currentPageToIllustrate === 'object') {
+            section = currentPageToIllustrate.section;
+            index = currentPageToIllustrate.index;
+        }
+        const arr = section ? appState.storyData[section] : null;
+        const pageObj = Array.isArray(arr) ? (arr[index] || null) : null;
+        const pageTextHtml = pageObj?.text || '';
+        const pageText = stripHtml(pageTextHtml);
+        const scenarioDesc = appState.storyData?.scenario?.description || '';
+        return { section, index, pageText, scenarioDesc };
+    };
+
     const generateImage = async (prompt, type, opts = {}) => {
         // Limpia el último error antes de solicitar
         appState.lastImageError = '';
@@ -294,6 +325,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleAISceneSubmit = async () => {
         const promptBase = document.getElementById('ai-scene-prompt')?.value?.trim() || '';
+        const { pageText, scenarioDesc } = getCurrentPageContext();
+        const textSnippet = pageText ? ` Basado en el texto de la página: "${summarize(pageText)}".` : '';
+        const scenarioSnippet = scenarioDesc ? ` Escenario base: ${scenarioDesc}.` : '';
         // Build character context from selected checkboxes
         const selectedIdxs = Array.from(document.querySelectorAll('#scene-characters-list input[type="checkbox"]:checked'))
             .map((el) => parseInt(el.getAttribute('data-index') || '0', 10));
@@ -312,7 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             charSnippet = ` Mantén la coherencia exacta del diseño de los personajes ya creados. Personajes en la escena: ${parts.join(' | ')}. No cambies colores de pelo/ojos/ropa ni rasgos.`;
         }
-    const prompt = `${promptBase}${charSnippet}`.trim();
+    const core = promptBase || (pageText ? `Ilustra esta escena: ${summarize(pageText)}` : 'Ilustra esta escena del cuento.');
+    const prompt = `${core}${scenarioSnippet}${textSnippet}${charSnippet}`.trim();
         if (!currentPageToIllustrate || !prompt) {
             aiSceneModal?.classList.remove('visible');
             return;
@@ -340,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Limitar a rango razonable
             return hash % 1000000000;
         })();
-        const imageUrl = await generateImage(prompt, 'scenario', { hfSeed: seedFromChars });
+    const imageUrl = await generateImage(prompt, 'scenario', { hfSeed: seedFromChars });
         if (imageUrl) {
             if (typeof currentPageToIllustrate === 'string') {
                 const sectionKey = currentPageToIllustrate;

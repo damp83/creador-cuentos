@@ -77,43 +77,64 @@ async function callHuggingFaceImage(model, prompt, dims, hfKey, log, opts = {}) 
 }
 
 function buildPrompts(type, userPrompt) {
+  // Core style tuned for kid-friendly storybook illustrations
   const baseStyle = [
-    'children\'s book illustration',
-    'colorful, friendly, clean composition',
-    'soft lighting, vivid but harmonious colors',
-    'high quality, detailed, coherent anatomy',
-    'no text, no watermark'
+    "children's book illustration",
+    'kid-friendly, whimsical, charming',
+    'soft edges, gentle shading, cohesive color palette',
+    'clean composition, clear focal point, good readability',
+    'illustration (not photorealistic)',
+    'no text, no captions, no watermark'
   ];
+
+  // Optional aspect hint based on env to guide composition
+  const ar = process.env.GOOGLE_IMAGE_AR || '';
+  const aspectHint = ar === '16:9' ? 'landscape wide composition 16:9' : ar === '1:1' ? 'square composition 1:1' : ar === '3:2' ? 'storybook aspect 3:2' : '';
+
   let intent = '';
   if (type === 'character') {
     intent = [
       'single character, full body, centered, plain background',
       'child-friendly proportions, expressive face, looking at camera',
-      'simple white background'
+      'simple light background'
     ].join(', ');
   } else if (type === 'cover') {
     intent = [
       'book cover composition without text',
       'central subject, clear silhouette, high contrast',
-      'room for title (but do not render any text)'
+      'leave empty space for title (but do not render any text)'
     ].join(', ');
   } else {
-    // scenario / scene
+    // scenario / scene (page illustration)
     intent = [
-      'wide scene, environment-focused',
+      'full-page storybook illustration',
+      aspectHint || 'balanced layout with foreground, midground, background',
       'consistent perspective and depth',
-      'balanced, readable layout'
+      'natural, soft lighting, pleasing color harmony',
+      'keep previously defined characters visually consistent'
     ].join(', ');
   }
+
+  // Reinforce character consistency if client appended character list
+  const hasCharacterList = /Personajes en la escena:/i.test(userPrompt);
+  const consistency = hasCharacterList
+    ? 'Do not change hair, eye color, clothing, or unique features of the listed characters.'
+    : '';
+
   const engineered = [
     `Subject: ${userPrompt}`,
     `Style: ${baseStyle.join(', ')}`,
     `Rendering: ${intent}`,
-  ].join('\n');
+    consistency
+  ].filter(Boolean).join('\n');
+
+  // Strong negative prompt to avoid common diffusion issues
   const negative = [
-    'lowres, blurry, noisy, jpeg artifacts',
-    'text, captions, letters, logo, watermark, signature',
-    'duplicate subjects, extra limbs, extra fingers, deformed, disfigured, mutated',
+    'lowres, low quality, worst quality, blurry, noisy, jpeg artifacts, grainy, pixelated',
+    'text, captions, letters, logo, watermark, signature, frame, border',
+    'duplicate subjects, extra limbs, extra fingers, extra arms, extra legs',
+    'bad hands, malformed hands, missing fingers, fused fingers, deformed anatomy, disfigured, mutated',
+    'cross-eye, lazy eye, distorted face, asymmetry, unnatural proportions',
     'nsfw, gore, scary'
   ].join(', ');
   return { prompt: engineered, negative };
